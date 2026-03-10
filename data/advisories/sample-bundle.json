@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "id": "hostguard-sample-2026-03-10",
+    "generatedAt": "2026-03-10T00:00:00.000Z",
+    "expiresAt": "2026-04-10T00:00:00.000Z",
+    "source": "bundled-sample",
+    "trust": {
+      "keyId": "sample-ed25519",
+      "algorithm": "ed25519"
+    }
+  },
+  "packages": [
+    {
+      "name": "openssh-server",
+      "severity": "high",
+      "summary": "Example bundled advisory for offline demonstration. Replace with current signed vendor data before relying on it.",
+      "cves": ["CVE-2025-DEMO-0001"],
+      "matchStrategy": "exact"
+    },
+    {
+      "name": "avahi-daemon",
+      "severity": "medium",
+      "summary": "Discovery services increase metadata leakage on local networks.",
+      "cves": [],
+      "matchStrategy": "exact"
+    }
+  ]
+}

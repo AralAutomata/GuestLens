@@ -1,0 +1,27 @@
+{
+  "name": "hostguard-linux",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.10",
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "next build",
+    "start": "bun run scripts/start.ts",
+    "collector": "bun run scripts/collector.ts",
+    "advisories:import": "bun run scripts/import-advisories.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "next": "^15.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.9.2"
+  }
+}
+
