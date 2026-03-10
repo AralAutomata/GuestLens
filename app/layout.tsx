@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "HostGuard Linux",
+  title: "InsideJobVM",
   description: "Guest-resident hardening and isolation analysis for Linux KVM guests."
 };
 

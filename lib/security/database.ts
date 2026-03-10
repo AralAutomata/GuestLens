@@ -6,11 +6,11 @@ import type { Finding, PostureSummary, ScanSnapshot, StoredScan } from "@/lib/ty
 
 declare global {
   // eslint-disable-next-line no-var
-  var __hostguardDb: DatabaseSync | undefined;
+  var __insideJobVmDb: DatabaseSync | undefined;
 }
 
 function openDatabase(): DatabaseSync {
-  if (!global.__hostguardDb) {
+  if (!global.__insideJobVmDb) {
     const dbPath = getDatabasePath();
     const db = new DatabaseSync(dbPath);
     db.exec(`
@@ -30,10 +30,10 @@ function openDatabase(): DatabaseSync {
     if (existsSync(dbPath)) {
       chmodSync(dbPath, 0o600);
     }
-    global.__hostguardDb = db;
+    global.__insideJobVmDb = db;
   }
 
-  return global.__hostguardDb;
+  return global.__insideJobVmDb;
 }
 
 export function saveScan(stored: StoredScan): void {
@@ -107,4 +107,3 @@ export function getScanHistory(limit = 10): Array<{
     findingCount: row.finding_count
   }));
 }
-

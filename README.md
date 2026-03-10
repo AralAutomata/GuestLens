@@ -1,6 +1,6 @@
-# HostGuard Linux
+# InsideJobVM
 
-HostGuard Linux is a guest-resident hardening and isolation analyzer for Linux virtual machines running under QEMU/KVM and typically managed with virt-manager. It is intentionally strict about what it can know from inside the guest:
+InsideJobVM is a guest-resident hardening and isolation analyzer for Linux virtual machines running under QEMU/KVM and typically managed with virt-manager. It is intentionally strict about what it can know from inside the guest:
 
 - `Authoritative`: guest state the VM can directly observe.
 - `Inferred`: likely host-guest exposure derived from guest-visible artifacts.
@@ -15,13 +15,13 @@ HostGuard Linux is a guest-resident hardening and isolation analyzer for Linux v
 
 The collector socket lives under the guest runtime directory:
 
-- default socket: `$XDG_RUNTIME_DIR/hostguard/collector.sock`
-- fallback socket: `/tmp/hostguard-<uid>/collector.sock`
+- default socket: `$XDG_RUNTIME_DIR/insidejobvm/collector.sock`
+- fallback socket: `/tmp/insidejobvm-<uid>/collector.sock`
 
 The application state lives under:
 
-- default state dir: `$XDG_STATE_HOME/hostguard`
-- fallback state dir: `~/.local/state/hostguard`
+- default state dir: `$XDG_STATE_HOME/insidejobvm`
+- fallback state dir: `~/.local/state/insidejobvm`
 
 ## What the guest can analyze well
 
@@ -67,7 +67,7 @@ bun run start
 
 ## Advisory bundles
 
-HostGuard ships with a bundled sample advisory bundle for offline development. Replace it with a newer offline bundle before relying on package findings.
+InsideJobVM ships with a bundled sample advisory bundle for offline development. Replace it with a newer offline bundle before relying on package findings.
 
 Import a newer bundle:
 
@@ -79,7 +79,7 @@ The bundle loader computes a SHA256 fingerprint and can verify embedded Ed25519 
 
 ## Fix guidance model
 
-- HostGuard is analytics-only in the UI.
+- InsideJobVM is analytics-only in the UI.
 - No background enforcement or web-triggered execution exists in this version.
 - Findings include reviewed fix commands and manual guidance for actions such as:
   - disabling `qemu-guest-agent`

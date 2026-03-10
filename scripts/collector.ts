@@ -4,7 +4,7 @@ import { getCollectorSocketPath } from "@/lib/security/state";
 const server = startCollectorServer();
 const socketPath = getCollectorSocketPath();
 
-console.log(`HostGuard collector listening on ${socketPath}`);
+console.log(`InsideJobVM collector listening on ${socketPath}`);
 
 function shutdown() {
   server.close(() => {
@@ -14,4 +14,3 @@ function shutdown() {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-

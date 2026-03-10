@@ -3,5 +3,5 @@ node_modules
 dist
 coverage
 *.log
-hostguard.db
+insidejobvm.db
 *.tsbuildinfo

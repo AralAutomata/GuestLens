@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const APP_DIR = "hostguard";
+const APP_DIR = "insidejobvm";
 
 function ensurePrivateDir(dirPath: string): string {
   if (!existsSync(dirPath)) {
@@ -38,7 +38,7 @@ export function getRuntimeDir(): string {
 }
 
 export function getDatabasePath(): string {
-  return path.join(getStateDir(), "hostguard.db");
+  return path.join(getStateDir(), "insidejobvm.db");
 }
 
 export function getCollectorSocketPath(): string {
@@ -52,4 +52,3 @@ export function getImportedAdvisoryPath(): string {
 export function getBundledAdvisoryPath(): string {
   return path.join(process.cwd(), "data", "advisories", "sample-bundle.json");
 }
-

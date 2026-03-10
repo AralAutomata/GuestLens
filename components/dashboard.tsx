@@ -100,7 +100,7 @@ export function Dashboard() {
     <main className="shell">
       <section className="hero">
         <p className="eyebrow">Host0 &lt;= Virt-Manager =&gt; Guest</p>
-        <h1>HostGuard Linux</h1>
+        <h1>InsideJobVM</h1>
         <p>
           A guest-resident analyzer for Linux KVM systems. It can certify guest state, infer host-guest exposure, and
           clearly mark host controls that cannot be proven from inside the VM.
@@ -142,7 +142,7 @@ export function Dashboard() {
           <div className="trust-note">
             <h3>Manual by design</h3>
             <p>
-              HostGuard does not execute remediations from the web UI. Findings include suggested commands and manual
+              InsideJobVM does not execute remediations from the web UI. Findings include suggested commands and manual
               steps that you review and run yourself in the guest terminal.
             </p>
           </div>
