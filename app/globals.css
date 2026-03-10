@@ -404,6 +404,7 @@ select {
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .group-head h3,
@@ -411,6 +412,17 @@ select {
 .panel h2,
 .panel h3 {
   margin: 0;
+}
+
+.group-head h3,
+.finding-top h4,
+.panel h2,
+.panel h3 {
+  min-width: 0;
+}
+
+.surface-list {
+  margin-top: 10px;
 }
 
 .surface-chip,
