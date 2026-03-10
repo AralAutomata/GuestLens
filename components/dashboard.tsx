@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import type { Finding, PostureSummary, RemediationAction, RemediationResult } from "@/lib/types";
+import type { Finding, PostureSummary } from "@/lib/types";
 
 interface HistoryEntry {
   scanId: string;
@@ -46,7 +46,6 @@ export function Dashboard() {
   const [posture, setPosture] = useState<PostureResponse>({ posture: null, scanId: null, collectedAt: null });
   const [findings, setFindings] = useState<Finding[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [lastRemediation, setLastRemediation] = useState<RemediationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -84,35 +83,9 @@ export function Dashboard() {
         if (!response.ok) {
           throw new Error(await response.text());
         }
-        setLastRemediation(null);
         await loadAll();
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Scan failed.");
-      }
-    });
-  }
-
-  async function runRemediation(action: RemediationAction, execute: boolean) {
-    if (execute && !window.confirm(`Execute '${action.title}' on this guest?`)) {
-      return;
-    }
-
-    startTransition(async () => {
-      setError(null);
-      try {
-        const response = await fetch(`/api/remediate/${action.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ execute })
-        });
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-        const payload = (await response.json()) as { remediation: RemediationResult };
-        setLastRemediation(payload.remediation);
-        await loadAll();
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Remediation failed.");
       }
     });
   }
@@ -161,28 +134,18 @@ export function Dashboard() {
         </div>
 
         <div className="panel">
-          <h2>Latest activity</h2>
+          <h2>Fix workflow</h2>
           <div className="status-line">
             <span>Scan ID: {posture.scanId ?? "n/a"}</span>
             <span>Findings: {findings.length}</span>
           </div>
-          {lastRemediation ? (
-            <div className="trust-note">
-              <h3>Last remediation</h3>
-              <p>
-                {lastRemediation.actionId} - {lastRemediation.success ? "success" : "failed"}
-              </p>
-              <div className="command-list">
-                {lastRemediation.output.map((line) => (
-                  <div className="command-item" key={line}>
-                    {line}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="empty">No remediation has been previewed or executed yet.</div>
-          )}
+          <div className="trust-note">
+            <h3>Manual by design</h3>
+            <p>
+              HostGuard does not execute remediations from the web UI. Findings include suggested commands and manual
+              steps that you review and run yourself in the guest terminal.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -238,20 +201,17 @@ export function Dashboard() {
                         <div className="evidence-item" key={action.id}>
                           <strong>{action.title}</strong>
                           <div className="meta">{action.description}</div>
+                          <div className="meta">
+                            {action.mode === "command"
+                              ? "Run these commands manually in the guest terminal."
+                              : "Follow the manual guidance below in the guest terminal or config files."}
+                          </div>
                           <div className="command-list">
                             {action.commands.map((command) => (
                               <div className="command-item" key={command}>
                                 {command}
                               </div>
                             ))}
-                          </div>
-                          <div className="finding-actions">
-                            <button className="button secondary" onClick={() => runRemediation(action, false)} disabled={isPending}>
-                              Preview
-                            </button>
-                            <button className="button warn" onClick={() => runRemediation(action, true)} disabled={isPending}>
-                              Execute
-                            </button>
                           </div>
                         </div>
                       ))}
@@ -296,4 +256,3 @@ export function Dashboard() {
     </main>
   );
 }
-

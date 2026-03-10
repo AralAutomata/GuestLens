@@ -28,15 +28,6 @@ export interface RemediationAction {
   commands: string[];
 }
 
-export interface RemediationResult {
-  actionId: string;
-  executed: boolean;
-  success: boolean;
-  output: string[];
-  beforeEvidence: Evidence[];
-  afterEvidence: Evidence[];
-}
-
 export interface ExposureSurface {
   kind: string;
   label: string;
@@ -207,4 +198,3 @@ export interface StoredScan {
   findings: Finding[];
   posture: PostureSummary;
 }
-

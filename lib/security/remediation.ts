@@ -1,8 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import type { Evidence, Finding, RemediationAction, RemediationResult, ScanSnapshot } from "@/lib/types";
+import type { RemediationAction, ScanSnapshot } from "@/lib/types";
 
 interface CommandPlan {
   argv: string[];
@@ -106,71 +105,3 @@ export function buildRemediationAction(
     commands: commands.map((command) => command.argv.join(" "))
   };
 }
-
-export function executeRemediation(action: RemediationAction, snapshot: ScanSnapshot, finding: Finding): RemediationResult {
-  const beforeEvidence = finding.evidence;
-  const plan = buildCommandPlan(action.id, snapshot);
-  if (plan.length === 0) {
-    return {
-      actionId: action.id,
-      executed: false,
-      success: false,
-      output: ["This remediation has no executable command plan on the current guest."],
-      beforeEvidence,
-      afterEvidence: beforeEvidence
-    };
-  }
-
-  if (action.requiresRoot && process.getuid?.() !== 0) {
-    return {
-      actionId: action.id,
-      executed: false,
-      success: false,
-      output: ["Root privileges are required. Re-run the application with an explicit privileged helper."],
-      beforeEvidence,
-      afterEvidence: beforeEvidence
-    };
-  }
-
-  const output: string[] = [];
-  for (const command of plan) {
-    try {
-      const [, ...args] = command.argv;
-      const stdout = execFileSync(command.argv[0], args, {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 10_000
-      }).trim();
-      output.push(`${command.description}${stdout ? ` ${stdout}` : ""}`.trim());
-    } catch (error) {
-      output.push(`${command.description} Failed: ${error instanceof Error ? error.message : "unknown error"}`);
-      return {
-        actionId: action.id,
-        executed: true,
-        success: false,
-        output,
-        beforeEvidence,
-        afterEvidence: beforeEvidence
-      };
-    }
-  }
-
-  const afterEvidence: Evidence[] = [
-    {
-      id: `${action.id}-executed`,
-      label: "Remediation executed",
-      detail: "A follow-up scan is required to confirm the post-change state.",
-      source: "remediation-helper"
-    }
-  ];
-
-  return {
-    actionId: action.id,
-    executed: true,
-    success: true,
-    output,
-    beforeEvidence,
-    afterEvidence
-  };
-}
-

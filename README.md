@@ -10,7 +10,7 @@ HostGuard Linux is a guest-resident hardening and isolation analyzer for Linux v
 
 - `collector`: a local inventory service that reads guest-visible state and listens on a Unix domain socket.
 - `analyzer`: converts raw guest state into posture scores, findings, and guided remediation actions.
-- `remediation-helper`: executes an allowlisted subset of explicit actions when the process has root privileges.
+- `remediation-helper`: generates allowlisted fix commands and manual guidance for explicit operator review.
 - `web-ui`: Next.js dashboard bound to `127.0.0.1` only.
 
 The collector socket lives under the guest runtime directory:
@@ -77,16 +77,17 @@ bun run advisories:import /path/to/advisories.bundle.json
 
 The bundle loader computes a SHA256 fingerprint and can verify embedded Ed25519 signatures when trusted keys are configured in `lib/security/advisories.ts`.
 
-## Remediation model
+## Fix guidance model
 
-- Remediation is explicit and operator-invoked.
-- No background enforcement exists in this version.
-- Command execution requires root privileges and only covers an allowlisted subset of actions:
+- HostGuard is analytics-only in the UI.
+- No background enforcement or web-triggered execution exists in this version.
+- Findings include reviewed fix commands and manual guidance for actions such as:
   - disabling `qemu-guest-agent`
   - disabling `spice-vdagent`
   - disabling `avahi-daemon`
   - unmounting `virtiofs` and `9p` shared folders
   - enabling a guest firewall where a supported backend is present
+- If a command needs `sudo` or root, the operator runs it directly in the guest terminal.
 
 ## Tests
 
