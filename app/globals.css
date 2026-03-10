@@ -76,15 +76,12 @@ code {
 .score-grid,
 .console-grid,
 .hero-actions,
-.hero-tags,
-.badges,
 .mini-grid,
 .profile-switcher,
 .filter-row,
 .finding-grid,
 .details-grid,
-.delta-line,
-.surface-list {
+.delta-line {
   display: grid;
   gap: 14px;
 }
@@ -182,7 +179,10 @@ code {
 .hero-tags,
 .badges,
 .surface-list {
-  grid-template-columns: repeat(auto-fit, minmax(0, max-content));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
 }
 
 .button,
@@ -424,6 +424,11 @@ select {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.04);
   font-size: 0.82rem;
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .badge-hot {
