@@ -169,6 +169,8 @@ export interface FirewallState {
   inputPolicy: string;
   outputPolicy: string;
   inferenceQuality: "exact" | "heuristic" | "none";
+  inspectionAvailable: boolean;
+  inspectionError?: string;
   activeManagers: string[];
   rawSummary: string[];
   source: string;
@@ -208,6 +210,7 @@ export interface NetworkState {
   neighbors: string[];
   listeningSockets: ListeningSocket[];
   publicListeningSockets: ListeningSocket[];
+  discoveryListeningSockets: ListeningSocket[];
   metadataRoutePresent: boolean;
   defaultGatewayType: "slirp" | "private-gateway" | "link-local" | "unknown";
   bridgeLikely: boolean;

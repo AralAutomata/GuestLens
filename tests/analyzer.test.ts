@@ -43,6 +43,7 @@ function baseSnapshot(): ScanSnapshot {
       neighbors: [],
       listeningSockets: [],
       publicListeningSockets: [],
+      discoveryListeningSockets: [],
       metadataRoutePresent: false,
       defaultGatewayType: "slirp",
       bridgeLikely: false,
@@ -56,11 +57,12 @@ function baseSnapshot(): ScanSnapshot {
         appArmorProfilesLoaded: true
       },
       firewall: {
-        backend: "nftables",
-        manager: "nftables",
-        rulesPresent: true,
-        defaultDenyInbound: true,
-        defaultDenyOutbound: false,
+      backend: "nftables",
+      manager: "nftables",
+      rulesPresent: true,
+      inspectionAvailable: true,
+      defaultDenyInbound: true,
+      defaultDenyOutbound: false,
         inputPolicy: "drop",
         outputPolicy: "accept",
         inferenceQuality: "exact",
@@ -186,6 +188,7 @@ describe("analyzeSnapshot", () => {
       }
     ];
     snapshot.network.listeningSockets = snapshot.network.publicListeningSockets;
+    snapshot.network.discoveryListeningSockets = [];
 
     const result = analyzeSnapshot(snapshot, "balanced");
 

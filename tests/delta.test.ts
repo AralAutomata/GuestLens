@@ -52,14 +52,15 @@ function scan(scanId: string, findings: Finding[]): StoredScan {
       network: {
         hostname: "test",
         dnsServers: [],
-        routes: [],
-        neighbors: [],
-        listeningSockets: [],
-        publicListeningSockets: [],
-        metadataRoutePresent: false,
-        defaultGatewayType: "unknown",
-        bridgeLikely: false,
-        multicastExposure: false
+      routes: [],
+      neighbors: [],
+      listeningSockets: [],
+      publicListeningSockets: [],
+      discoveryListeningSockets: [],
+      metadataRoutePresent: false,
+      defaultGatewayType: "unknown",
+      bridgeLikely: false,
+      multicastExposure: false
       },
       filePermissionIssues: [],
       security: {
@@ -69,11 +70,12 @@ function scan(scanId: string, findings: Finding[]): StoredScan {
           appArmorProfilesLoaded: true
         },
         firewall: {
-          backend: "nftables",
-          manager: "nftables",
-          rulesPresent: true,
-          defaultDenyInbound: true,
-          defaultDenyOutbound: false,
+        backend: "nftables",
+        manager: "nftables",
+        rulesPresent: true,
+        inspectionAvailable: true,
+        defaultDenyInbound: true,
+        defaultDenyOutbound: false,
           inputPolicy: "drop",
           outputPolicy: "accept",
           inferenceQuality: "exact",

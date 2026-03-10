@@ -41,16 +41,131 @@ function commandExists(command: string): boolean {
   return pathEntries.some((entry) => existsSync(path.join(entry, command)));
 }
 
-function runCommand(command: string, args: string[] = []): string {
+interface CommandExecution {
+  stdout: string;
+  error: string | null;
+}
+
+function runCommandWithStatus(command: string, args: string[] = []): CommandExecution {
   try {
-    return execFileSync(command, args, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 5000
-    }).trim();
-  } catch {
-    return "";
+    return {
+      stdout: execFileSync(command, args, {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 5000
+      }).trim(),
+      error: null
+    };
+  } catch (error: unknown) {
+    const commandError = error as
+      | (Error & { stderr?: string | Buffer; message?: string })
+      | { stderr?: string | Buffer; message?: string };
+    const stderrText =
+      typeof commandError.stderr === "string"
+        ? commandError.stderr
+        : commandError.stderr?.toString?.("utf8") ?? commandError.message ?? "";
+
+    return {
+      stdout: "",
+      error: String(stderrText).trim()
+    };
   }
+}
+
+function runCommand(command: string, args: string[] = []): string {
+  return runCommandWithStatus(command, args).stdout;
+}
+
+function stripHostScope(address: string): string {
+  const scopeIndex = address.indexOf("%");
+  return scopeIndex === -1 ? address : address.slice(0, scopeIndex);
+}
+
+function isLoopbackHost(address: string): boolean {
+  const host = stripHostScope(address).toLowerCase();
+
+  if (!host || host === "localhost" || host === "::1" || host === "[::1]") {
+    return true;
+  }
+
+  if (host.startsWith("127.")) {
+    return true;
+  }
+
+  return host === "0:0:0:0:0:0:0:1";
+}
+
+function isMulticastHost(address: string): boolean {
+  const host = stripHostScope(address).toLowerCase();
+  if (!host) {
+    return false;
+  }
+
+  return /^((ff[0-9a-f]{2}:)|224\.|239\.)/.test(host);
+}
+
+function isDiscoverySocket(socket: ListeningSocket): boolean {
+  if (!socket.host || socket.port == null) {
+    return false;
+  }
+
+  if (isMulticastHost(socket.host)) {
+    return true;
+  }
+
+  if (socket.port === 5353 || socket.port === 5355 || socket.port === 1900 || socket.port === 3702) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPrivateGateway(gateway: string): boolean {
+  return (
+    gateway.startsWith("10.") ||
+    gateway.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(gateway)
+  );
+}
+
+function isPermissionError(error: string | null): boolean {
+  if (!error) {
+    return false;
+  }
+
+  return /operation not permitted|permission denied|must be root|not permitted/i.test(error);
+}
+
+function routeSubnetForGateway(gateway: string | undefined): string | undefined {
+  if (!gateway) {
+    return undefined;
+  }
+
+  const segments = gateway.split(".");
+  if (segments.length !== 4) {
+    return undefined;
+  }
+
+  return `${segments[0]}.${segments[1]}.${segments[2]}.0/24`;
+}
+
+function looksLikeLibvirtNatGateway(routes: RouteRecord[], defaultRoute?: RouteRecord): boolean {
+  if (!defaultRoute?.via || !defaultRoute.device) {
+    return false;
+  }
+
+  const gateway = defaultRoute.via;
+  if (gateway === "192.168.122.1") {
+    return true;
+  }
+
+  const subnet = routeSubnetForGateway(gateway);
+  const hasSubnetRoute = subnet
+    ? routes.some((route) => route.destination === subnet && route.device === defaultRoute.device && route.scope === "local-subnet")
+    : false;
+  const onVirbr = /^virbr\d+$/.test(defaultRoute.device);
+
+  return onVirbr || (hasSubnetRoute && gateway.endsWith(".1"));
 }
 
 function parseOsRelease(): { distro: string; version: string } {
@@ -225,7 +340,7 @@ function splitHostPort(value: string): { host: string; port: number | null; fami
 }
 
 function bindScopeForHost(host: string): ListeningSocket["bindScope"] {
-  if (host === "127.0.0.1" || host === "::1" || host === "[::1]" || host.includes("%lo")) {
+  if (isLoopbackHost(host)) {
     return "loopback";
   }
   if (host === "0.0.0.0" || host === "*" || host === "::" || host === "[::]") {
@@ -255,12 +370,13 @@ function parseListeningSockets(observedAt: string): ListeningSocket[] {
       const parts = line.trim().split(/\s+/);
       const localAddress = parts[4] ?? "unknown";
       const parsed = splitHostPort(localAddress);
-      const bindScope = bindScopeForHost(parsed.host);
+      const host = stripHostScope(parsed.host);
+      const bindScope = bindScopeForHost(host);
       return {
         protocol: parts[0] ?? "unknown",
         state: parts[1] ?? "unknown",
         family: parsed.family,
-        host: parsed.host,
+        host,
         port: parsed.port,
         localAddress,
         bindScope,
@@ -332,7 +448,29 @@ function collectFirewall(services: ServiceRecord[]): FirewallState {
   const activeManagers = detectFirewallManagers(services);
 
   if (commandExists("nft")) {
-    const raw = runCommand("nft", ["list", "ruleset"]);
+    const result = runCommandWithStatus("nft", ["list", "ruleset"]);
+    const raw = result.stdout;
+
+    if (isPermissionError(result.error)) {
+      return {
+        backend: "nftables",
+        manager: activeManagers[0] ?? "nftables",
+        rulesPresent: false,
+        defaultDenyInbound: false,
+        defaultDenyOutbound: false,
+        inputPolicy: "unknown",
+        outputPolicy: "unknown",
+        inferenceQuality: "heuristic",
+        inspectionAvailable: false,
+        inspectionError: result.error ?? "permission denied while reading nft ruleset",
+        activeManagers,
+        rawSummary: [],
+        source: "nft",
+        collectedFrom: "nft list ruleset",
+        parser: "regex-policy"
+      };
+    }
+
     const inputPolicy = policyFromRuleset(raw, "input");
     const outputPolicy = policyFromRuleset(raw, "output");
     return {
@@ -344,6 +482,7 @@ function collectFirewall(services: ServiceRecord[]): FirewallState {
       inputPolicy,
       outputPolicy,
       inferenceQuality: raw.length === 0 ? "none" : inputPolicy === "unknown" ? "heuristic" : "exact",
+      inspectionAvailable: true,
       activeManagers,
       rawSummary: raw.split("\n").slice(0, 20),
       source: "nft",
@@ -353,7 +492,28 @@ function collectFirewall(services: ServiceRecord[]): FirewallState {
   }
 
   if (commandExists("iptables-save")) {
-    const raw = runCommand("iptables-save");
+    const result = runCommandWithStatus("iptables-save");
+    const raw = result.stdout;
+    if (isPermissionError(result.error)) {
+      return {
+        backend: "iptables",
+        manager: activeManagers[0] ?? "iptables",
+        rulesPresent: false,
+        defaultDenyInbound: false,
+        defaultDenyOutbound: false,
+        inputPolicy: "unknown",
+        outputPolicy: "unknown",
+        inferenceQuality: "heuristic",
+        inspectionAvailable: false,
+        inspectionError: result.error ?? "permission denied while reading iptables-save",
+        activeManagers,
+        rawSummary: [],
+        source: "iptables-save",
+        collectedFrom: "iptables-save",
+        parser: "chain-policy"
+      };
+    }
+
     const inputPolicy = raw.match(/:INPUT (ACCEPT|DROP)/)?.[1]?.toLowerCase() ?? "unknown";
     const outputPolicy = raw.match(/:OUTPUT (ACCEPT|DROP)/)?.[1]?.toLowerCase() ?? "unknown";
     return {
@@ -365,6 +525,7 @@ function collectFirewall(services: ServiceRecord[]): FirewallState {
       inputPolicy,
       outputPolicy,
       inferenceQuality: raw.length === 0 ? "none" : inputPolicy === "unknown" ? "heuristic" : "exact",
+      inspectionAvailable: true,
       activeManagers,
       rawSummary: raw.split("\n").slice(0, 20),
       source: "iptables-save",
@@ -382,6 +543,8 @@ function collectFirewall(services: ServiceRecord[]): FirewallState {
     inputPolicy: "unknown",
     outputPolicy: "unknown",
     inferenceQuality: "none",
+    inspectionAvailable: false,
+    inspectionError: "No supported firewall command (nft or iptables-save) available as this user.",
     activeManagers,
     rawSummary: [],
     source: "collector",
@@ -613,11 +776,7 @@ function defaultGatewayType(routes: RouteRecord[]): "slirp" | "private-gateway" 
   if (gateway.startsWith("169.254.")) {
     return "link-local";
   }
-  if (
-    gateway.startsWith("10.") ||
-    gateway.startsWith("192.168.") ||
-    /^172\.(1[6-9]|2\d|3[0-1])\./.test(gateway)
-  ) {
+  if (isPrivateGateway(gateway)) {
     return "private-gateway";
   }
   return "unknown";
@@ -627,9 +786,14 @@ function collectNetwork(observedAt: string) {
   const routes = parseRoutes(observedAt);
   const neighbors = commandExists("ip") ? runCommand("ip", ["neigh", "show"]).split("\n").filter(Boolean) : [];
   const listeningSockets = parseListeningSockets(observedAt);
-  const publicListeningSockets = listeningSockets.filter((socket) => socket.reachability !== "local-only");
-  const multicastExposure = listeningSockets.some((socket) => socket.host.startsWith("239.") || socket.host.startsWith("224.") || socket.host.startsWith("ff02:"));
+  const discoveryListeningSockets = listeningSockets.filter(isDiscoverySocket);
+  const publicListeningSockets = listeningSockets.filter(
+    (socket) => socket.reachability !== "local-only" && !isDiscoverySocket(socket)
+  );
+  const multicastExposure = discoveryListeningSockets.length > 0;
   const gatewayType = defaultGatewayType(routes);
+  const defaultRoute = routes.find((route) => route.destination === "default");
+  const libvirtNatLikely = looksLikeLibvirtNatGateway(routes, defaultRoute);
 
   return {
     hostname: os.hostname(),
@@ -638,9 +802,10 @@ function collectNetwork(observedAt: string) {
     neighbors,
     listeningSockets,
     publicListeningSockets,
+    discoveryListeningSockets,
     metadataRoutePresent: routes.some((route) => route.raw.includes("169.254.169.254")),
     defaultGatewayType: gatewayType,
-    bridgeLikely: gatewayType === "private-gateway",
+    bridgeLikely: gatewayType === "private-gateway" && !libvirtNatLikely,
     multicastExposure
   };
 }

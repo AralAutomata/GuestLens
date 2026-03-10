@@ -176,6 +176,48 @@ const checks: CheckDefinition[] = [
   },
   {
     run({ snapshot, profile }) {
+      if (snapshot.security.firewall.inspectionAvailable === false) {
+        return [
+          {
+            finding: createFinding(snapshot, profile, {
+              id: "guest-firewall-visibility-limited",
+              ruleId: "guest.firewall.visibility-limited",
+              groupKey: "observability",
+              title: "Firewall visibility is permission-limited",
+              summary: "The guest appears to have firewall tooling, but process privileges were insufficient to read full ruleset state.",
+              severity: profileAdjustedSeverity(profile, "low", "guest", ["observabilityConfidence", "exposureSurface"]),
+              confidence: "inferred",
+              certaintyReason:
+                "The collector could not read backend firewall tables and therefore cannot prove default policy or rule coverage.",
+              boundary: "guest",
+              categories: ["observabilityConfidence", "exposureSurface"],
+              impactedSurfaces: ["firewall telemetry"],
+              evidence: [
+                evidence(snapshot, {
+                  id: "firewall-visibility",
+                  label: "Firewall inspection error",
+                  kind: "firewall",
+                  value: snapshot.security.firewall.inspectionError ?? "permission-limited",
+                  source: snapshot.security.firewall.source,
+                  pathOrCommand: snapshot.security.firewall.collectedFrom,
+                  interpretation: "Permission barriers prevented complete firewall inspection.",
+                  confidenceBasis: "Tooling output error"
+                })
+              ],
+              rationale: "Without backend visibility, exposure findings should be treated as indicative rather than definitive.",
+              operatorImpact: "Run the scanner with privileged access or collect firewall policy via host-managed tools to confirm.",
+              falsePositiveGuidance: "This is a tooling visibility limit, not proof of an unsafe policy.",
+              remediation: [],
+              riskFactors: [
+                riskFactor("visibility", "Firewall inspection", "Firewall rules could not be read without elevated permissions.", "low", "guest")
+              ],
+              relatedFindingIds: [],
+              safeForAutomationLater: false
+            })
+          }
+        ];
+      }
+
       if (!snapshot.security.firewall.rulesPresent) {
         return [
           {
@@ -710,6 +752,61 @@ const checks: CheckDefinition[] = [
   },
   {
     run({ snapshot, profile }) {
+      if ((snapshot.network.discoveryListeningSockets?.length ?? 0) > 0) {
+        return [
+          {
+            finding: createFinding(snapshot, profile, {
+              id: "discovery-sockets-present",
+              ruleId: "guest.network.discovery-sockets",
+              groupKey: "discovery-and-metadata",
+              title: "Multicast/discovery listeners are active",
+              summary: "The guest has multicast-bound service listeners that increase lateral visibility on local subnets.",
+              severity: profileAdjustedSeverity(profile, "low", "guest", ["exposureSurface", "leakageRisk"]),
+              confidence: "authoritative",
+              certaintyReason: "The guest directly observed bound sockets to multicast destinations.",
+              boundary: "guest-host interface",
+              categories: ["exposureSurface", "leakageRisk"],
+              impactedSurfaces: ["mDNS", "SSDP", "local discovery"],
+              evidence: snapshot.network.discoveryListeningSockets.map((socket, index) =>
+                evidence(snapshot, {
+                  id: `discovery-${index}`,
+                  label: `${socket.protocol} discovery listener`,
+                  kind: "socket",
+                  value: `${socket.protocol} ${socket.localAddress}`,
+                  source: socket.collectedFrom,
+                  pathOrCommand: "ss -H -lntup",
+                  interpretation: `Discovery socket bound to ${socket.reachability}.`,
+                  confidenceBasis: "Direct socket inspection"
+                })
+              ),
+              rationale:
+                "Discovery services like mDNS/SSDP help local discovery and also provide additional host/guest fingerprinting paths.",
+              operatorImpact:
+                "Discovery sockets do not always indicate open server services, but they do expand adjacent-network observability.",
+              falsePositiveGuidance:
+                "Suppress by disabling local discovery daemons only if service visibility and media casting are not required.",
+              remediation: [],
+              riskFactors: [
+                riskFactor(
+                  "discovery",
+                  "Service discovery listeners",
+                  "Multicast discovery surfaces are enabled.",
+                  "low",
+                  "guest-host interface"
+                )
+              ],
+              relatedFindingIds: [],
+              safeForAutomationLater: false
+            })
+          }
+        ];
+      }
+
+      return [];
+    }
+  },
+  {
+    run({ snapshot, profile }) {
       if (snapshot.network.publicListeningSockets.length === 0) {
         return [];
       }
@@ -1055,10 +1152,12 @@ const checks: CheckDefinition[] = [
             ruleId: "guest.attack-path.exposed-service-bridge",
             groupKey: "exposure-control",
             title: "Combined exposure path suggests services may be reachable beyond the host",
-            summary: "The guest has public listeners, lacks a confirmed default-deny inbound firewall, and appears to use a private-gateway topology consistent with bridged or LAN-reachable networking.",
+            summary:
+              "The guest has non-loopback listeners, lacks a confirmed default-deny inbound firewall, and shows a private-gateway topology that may be reachability-facing.",
             severity: profileAdjustedSeverity(profile, "critical", "guest-host interface", ["exposureSurface", "leakageRisk"]),
             confidence: "inferred",
-            certaintyReason: "Each signal is guest-visible, but the final reachability claim depends on host networking behavior the guest cannot directly certify.",
+            certaintyReason:
+              "Each signal is guest-visible, but the final reachability claim depends on host networking behavior the guest cannot directly certify.",
             boundary: "guest-host interface",
             categories: ["exposureSurface", "leakageRisk", "observabilityConfidence"],
             impactedSurfaces: ["network boundary", ...snapshot.network.publicListeningSockets.slice(0, 4).map((socket) => socket.localAddress)],
@@ -1070,7 +1169,7 @@ const checks: CheckDefinition[] = [
                 value: snapshot.network.defaultGatewayType,
                 source: "ip route show",
                 pathOrCommand: "ip route show",
-                interpretation: "Private gateway topology suggests broader reachability than slirp-only NAT.",
+                interpretation: "Private gateway topology suggests potential LAN exposure; this is not proven from the guest alone.",
                 confidenceBasis: "Direct route table with inferred host networking mode"
               }),
               evidence(snapshot, {
