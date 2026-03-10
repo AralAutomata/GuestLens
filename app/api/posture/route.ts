@@ -10,7 +10,8 @@ export async function GET() {
   return NextResponse.json({
     posture: latest?.posture ?? null,
     scanId: latest?.scanId ?? null,
-    collectedAt: latest?.snapshot.collectedAt ?? null
+    collectedAt: latest?.snapshot.collectedAt ?? null,
+    profile: latest?.profile ?? null,
+    delta: latest?.delta ?? null
   });
 }
-

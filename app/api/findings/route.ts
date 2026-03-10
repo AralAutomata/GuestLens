@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const latest = getLatestStoredScan();
   return NextResponse.json({
-    findings: latest?.findings ?? []
+    scanId: latest?.scanId ?? null,
+    profile: latest?.profile ?? null,
+    findings: latest?.findings ?? [],
+    groups: latest?.groups ?? [],
+    delta: latest?.delta ?? null
   });
 }
-

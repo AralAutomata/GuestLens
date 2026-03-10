@@ -1,75 +1,116 @@
-import type { Finding, PostureCategory, PostureScore, PostureSummary, Severity } from "@/lib/types";
+import { getPolicyProfileDefinition } from "@/lib/security/profiles";
+import type { Finding, PolicyProfile, PostureCategory, PostureScore, PostureSummary, Severity } from "@/lib/types";
 
 const SEVERITY_WEIGHT: Record<Severity, number> = {
-  info: 0,
+  info: 2,
   low: 5,
-  medium: 10,
+  medium: 11,
   high: 18,
-  critical: 25
+  critical: 27
 };
 
 const CONFIDENCE_MULTIPLIER = {
   authoritative: 1,
   inferred: 0.8,
-  unverifiable: 0.4
+  unverifiable: 0.45
 } as const;
 
-const TITLES: Record<PostureCategory, string> = {
+const CATEGORY_TITLES: Record<PostureCategory, string> = {
   guestHardening: "Guest Hardening",
   exposureSurface: "Exposure Surface",
   leakageRisk: "Leakage Risk",
-  remediationReadiness: "Remediation Readiness",
+  observabilityConfidence: "Observability Confidence",
   unverifiableHostControls: "Unverifiable Host Controls"
+};
+
+const PROFILE_CATEGORY_MULTIPLIER: Record<PolicyProfile, Record<PostureCategory, number>> = {
+  balanced: {
+    guestHardening: 1,
+    exposureSurface: 1,
+    leakageRisk: 1,
+    observabilityConfidence: 1,
+    unverifiableHostControls: 1
+  },
+  "high-isolation": {
+    guestHardening: 1,
+    exposureSurface: 1.2,
+    leakageRisk: 1.35,
+    observabilityConfidence: 1,
+    unverifiableHostControls: 1
+  },
+  "paranoid-lab": {
+    guestHardening: 1.1,
+    exposureSurface: 1.35,
+    leakageRisk: 1.55,
+    observabilityConfidence: 1.1,
+    unverifiableHostControls: 1
+  }
 };
 
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-export function buildPostureSummary(findings: Finding[]): PostureSummary {
+function scoreFindings(findings: Finding[], category: PostureCategory, profile: PolicyProfile): PostureScore {
+  const drivers = findings.filter((finding) => finding.categories.includes(category));
+
+  if (category === "unverifiableHostControls") {
+    const score = clampScore(100 - drivers.length * 18);
+    return {
+      category,
+      title: CATEGORY_TITLES[category],
+      score,
+      summary:
+        drivers.length > 0
+          ? `${drivers.length} host-side controls remain outside the guest trust boundary.`
+          : "No explicit host blind spots were recorded.",
+      driverFindingIds: drivers.map((finding) => finding.id)
+    };
+  }
+
+  if (category === "observabilityConfidence") {
+    const inferredCount = findings.filter((finding) => finding.confidence === "inferred").length;
+    const blindSpotCount = findings.filter((finding) => finding.confidence === "unverifiable").length;
+    const score = clampScore(100 - drivers.length * 11 - inferredCount * 3 - blindSpotCount * 4);
+    return {
+      category,
+      title: CATEGORY_TITLES[category],
+      score,
+      summary:
+        drivers.length > 0
+          ? `${drivers.length} findings indicate heuristic or limited-visibility conclusions.`
+          : "Telemetry quality is strong for the current guest-visible checks.",
+      driverFindingIds: drivers.map((finding) => finding.id)
+    };
+  }
+
+  const multiplier = PROFILE_CATEGORY_MULTIPLIER[profile][category];
+  const score = clampScore(
+    100 -
+      drivers.reduce((total, finding) => {
+        return total + SEVERITY_WEIGHT[finding.severity] * CONFIDENCE_MULTIPLIER[finding.confidence] * multiplier;
+      }, 0)
+  );
+
+  return {
+    category,
+    title: CATEGORY_TITLES[category],
+    score,
+    summary: drivers.length > 0 ? `${drivers.length} findings currently drive this category.` : "No material issues detected in this category.",
+    driverFindingIds: drivers.map((finding) => finding.id)
+  };
+}
+
+export function buildPostureSummary(findings: Finding[], profile: PolicyProfile): PostureSummary {
   const categories: PostureCategory[] = [
     "guestHardening",
     "exposureSurface",
     "leakageRisk",
-    "remediationReadiness",
+    "observabilityConfidence",
     "unverifiableHostControls"
   ];
-
-  const scores: PostureScore[] = categories.map((category) => {
-    if (category === "unverifiableHostControls") {
-      const count = findings.filter((finding) => finding.boundary === "host-unverifiable").length;
-      const score = clampScore(20 - count * 2);
-      return {
-        category,
-        title: TITLES[category],
-        score,
-        summary: count > 0 ? `${count} host controls remain unverifiable from inside the guest.` : "No explicit host-control blind spots were recorded."
-      };
-    }
-
-    let score = 100;
-    for (const finding of findings) {
-      if (!finding.categories.includes(category)) {
-        continue;
-      }
-      score -= SEVERITY_WEIGHT[finding.severity] * CONFIDENCE_MULTIPLIER[finding.confidence];
-      if (category === "remediationReadiness" && finding.remediation.length === 0) {
-        score -= 6;
-      }
-    }
-
-    const categoryFindings = findings.filter((finding) => finding.categories.includes(category));
-    return {
-      category,
-      title: TITLES[category],
-      score: clampScore(score),
-      summary:
-        categoryFindings.length > 0
-          ? `${categoryFindings.length} findings influence this category.`
-          : "No material issues detected in this category."
-    };
-  });
-
+  const scores = categories.map((category) => scoreFindings(findings, category, profile));
+  const profileMeta = getPolicyProfileDefinition(profile);
   const overallScore =
     scores
       .filter((score) => score.category !== "unverifiableHostControls")
@@ -77,10 +118,10 @@ export function buildPostureSummary(findings: Finding[]): PostureSummary {
 
   return {
     generatedAt: new Date().toISOString(),
-    overallScore: clampScore(overallScore),
+    profile,
     scores,
-    trustStatement:
-      "Authoritative findings come from guest-visible state. Inferred findings describe likely host-guest exposure. Host-side isolation controls remain unverifiable from inside the VM."
+    overallScore: clampScore(overallScore),
+    trustStatement: `${profileMeta.label} profile: authoritative findings come from guest-visible state, inferred findings describe likely exposure paths, and host-side isolation controls remain unverifiable from inside the VM.`,
+    topPriorities: findings.filter((finding) => finding.severity === "critical" || finding.severity === "high").slice(0, 3).map((finding) => finding.title)
   };
 }
-
