@@ -200,75 +200,8 @@ export function Dashboard() {
         )}
       </section>
 
-      <section className="content-grid">
-        <div className="panel panel-main">
-          <div className="section-head">
-            <div>
-              <div className="panel-kicker">Primary Queue</div>
-              <h2>Findings</h2>
-            </div>
-            <p className="section-copy">
-              Recommendations are advisory only. Review the evidence, then run the proposed commands manually in the
-              guest terminal when appropriate.
-            </p>
-          </div>
-          {findings.length === 0 ? (
-            <div className="empty">No stored findings yet. Run a scan to collect guest state.</div>
-          ) : (
-            <div className="finding-list finding-grid">
-              {findings.map((finding) => (
-                <article className="finding" key={`${finding.id}-${finding.createdAt}`}>
-                  <div className="finding-head">
-                    <div>
-                      <h3>{finding.title}</h3>
-                      <p>{finding.summary}</p>
-                    </div>
-                    <div className="badges">
-                      <span className={`badge severity-${finding.severity}`}>{finding.severity}</span>
-                      <span className={`badge confidence-${finding.confidence}`}>{finding.confidence}</span>
-                      <span className="badge">{finding.boundary}</span>
-                    </div>
-                  </div>
-                  <div className="evidence-list">
-                    {finding.evidence.map((item) => (
-                      <div className="evidence-item" key={item.id}>
-                        <strong>{item.label}</strong>
-                        <div>{item.detail}</div>
-                        <div className="meta">Source: {item.source}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="footer-note">{finding.rationale}</div>
-                  {finding.remediation.length > 0 ? (
-                    <div className="finding-actions">
-                      {finding.remediation.map((action) => (
-                        <div className="evidence-item" key={action.id}>
-                          <strong>{action.title}</strong>
-                          <div className="meta">{action.description}</div>
-                          <div className="meta">
-                            {action.mode === "command"
-                              ? "Run these commands manually in the guest terminal."
-                              : "Follow the manual guidance below in the guest terminal or config files."}
-                          </div>
-                          <div className="command-list">
-                            {action.commands.map((command) => (
-                              <div className="command-item" key={command}>
-                                {command}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <aside className="sidebar-stack">
-          <div className="panel">
+      <section className="support-grid">
+        <div className="panel">
             <div className="section-head">
               <div>
                 <div className="panel-kicker">Operational View</div>
@@ -293,7 +226,7 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="panel">
+        <div className="panel">
             <div className="section-head">
               <div>
                 <div className="panel-kicker">Methodology</div>
@@ -314,9 +247,9 @@ export function Dashboard() {
                 <span>libvirt XML, host firewalling, storage policy, MAC labels, and hypervisor escape resistance.</span>
               </div>
             </div>
-          </div>
+        </div>
 
-          <div className="panel">
+        <div className="panel">
             <div className="section-head">
               <div>
                 <div className="panel-kicker">Fix Workflow</div>
@@ -337,8 +270,81 @@ export function Dashboard() {
                 <span>Review each finding, copy the command, run it with `sudo` if needed, then rescan.</span>
               </div>
             </div>
+        </div>
+      </section>
+
+      <section className="panel panel-main">
+        <div className="section-head">
+          <div>
+            <div className="panel-kicker">Primary Queue</div>
+            <h2>Findings</h2>
           </div>
-        </aside>
+          <p className="section-copy">
+            Recommendations are advisory only. Review the evidence, then run the proposed commands manually in the
+            guest terminal when appropriate.
+          </p>
+        </div>
+        {findings.length === 0 ? (
+          <div className="empty">No stored findings yet. Run a scan to collect guest state.</div>
+        ) : (
+          <div className="finding-list">
+            {findings.map((finding) => (
+              <article className="finding finding-wide" key={`${finding.id}-${finding.createdAt}`}>
+                <div className="finding-head">
+                  <div className="finding-summary">
+                    <h3>{finding.title}</h3>
+                    <p>{finding.summary}</p>
+                  </div>
+                  <div className="badges">
+                    <span className={`badge severity-${finding.severity}`}>{finding.severity}</span>
+                    <span className={`badge confidence-${finding.confidence}`}>{finding.confidence}</span>
+                    <span className="badge">{finding.boundary}</span>
+                  </div>
+                </div>
+                <div className={`finding-body ${finding.remediation.length > 0 ? "finding-body-has-fix" : ""}`}>
+                  <div className="finding-column">
+                    <div className="subsection-label">Evidence</div>
+                    <div className="evidence-list evidence-grid">
+                      {finding.evidence.map((item) => (
+                        <div className="evidence-item" key={item.id}>
+                          <strong>{item.label}</strong>
+                          <div>{item.detail}</div>
+                          <div className="meta">Source: {item.source}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="footer-note">{finding.rationale}</div>
+                  </div>
+                  {finding.remediation.length > 0 ? (
+                    <div className="finding-column finding-column-fix">
+                      <div className="subsection-label">Fix Guidance</div>
+                      <div className="finding-actions">
+                        {finding.remediation.map((action) => (
+                          <div className="evidence-item" key={action.id}>
+                            <strong>{action.title}</strong>
+                            <div className="meta">{action.description}</div>
+                            <div className="meta">
+                              {action.mode === "command"
+                                ? "Run these commands manually in the guest terminal."
+                                : "Follow the manual guidance below in the guest terminal or config files."}
+                            </div>
+                            <div className="command-list">
+                              {action.commands.map((command) => (
+                                <div className="command-item" key={command}>
+                                  {command}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

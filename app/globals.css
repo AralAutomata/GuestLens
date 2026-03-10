@@ -301,22 +301,15 @@ a {
   color: var(--bad);
 }
 
-.content-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.68fr) minmax(330px, 0.92fr);
-  gap: 18px;
-  align-items: start;
-}
-
 .panel-main {
   min-width: 0;
+  margin-top: 18px;
 }
 
-.sidebar-stack {
+.support-grid {
   display: grid;
+  grid-template-columns: 0.92fr 1.08fr 1fr;
   gap: 18px;
-  position: sticky;
-  top: 24px;
 }
 
 .section-head {
@@ -339,10 +332,6 @@ a {
   margin-top: 12px;
 }
 
-.finding-grid {
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-}
-
 .finding {
   display: grid;
   gap: 14px;
@@ -363,6 +352,41 @@ a {
 
 .finding-head h3 {
   margin-bottom: 8px;
+}
+
+.finding-summary {
+  max-width: 78ch;
+}
+
+.finding-wide {
+  gap: 18px;
+}
+
+.finding-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.finding-body-has-fix {
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  align-items: start;
+}
+
+.finding-column {
+  display: grid;
+  gap: 12px;
+}
+
+.finding-column-fix {
+  align-content: start;
+}
+
+.subsection-label {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
 }
 
 .badge {
@@ -402,6 +426,10 @@ a {
 .command-list {
   display: grid;
   gap: 8px;
+}
+
+.evidence-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .evidence-item,
@@ -509,12 +537,8 @@ a {
 
 @media (max-width: 1120px) {
   .hero-grid,
-  .content-grid {
+  .support-grid {
     grid-template-columns: 1fr;
-  }
-
-  .sidebar-stack {
-    position: static;
   }
 
   .section-head {
@@ -544,11 +568,10 @@ a {
   .score-grid,
   .metric-strip,
   .mini-stats,
-  .callout-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .finding-grid {
+  .callout-grid,
+  .support-grid,
+  .evidence-grid,
+  .finding-body-has-fix {
     grid-template-columns: 1fr;
   }
 
