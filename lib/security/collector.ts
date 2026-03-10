@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -651,7 +651,36 @@ function collectFilePermissionIssues(observedAt: string): FilePermissionIssue[] 
     }
 
     const mode = stats.mode & 0o7777;
+    if (stats.isSymbolicLink()) {
+      let targetStats;
+      try {
+        targetStats = statSync(currentPath);
+      } catch {
+        return;
+      }
+
+      const targetMode = targetStats.mode & 0o7777;
+      if ((targetMode & 0o002) !== 0) {
+        if (targetStats.isDirectory() && (targetMode & 0o1000) !== 0) {
+          return;
+        }
+        issues.push({
+          path: currentPath,
+          mode: targetMode.toString(8),
+          reason: targetStats.isDirectory()
+            ? "Symlink target directory is world-writable."
+            : "Symlink target file is world-writable.",
+          observedAt,
+          collectedFrom: "filesystem"
+        });
+      }
+      return;
+    }
+
     if ((mode & 0o002) !== 0) {
+      if (stats.isDirectory() && (mode & 0o1000) !== 0) {
+        return;
+      }
       issues.push({
         path: currentPath,
         mode: mode.toString(8),
