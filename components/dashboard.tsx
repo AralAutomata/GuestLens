@@ -320,8 +320,46 @@ export function Dashboard() {
         </div>
 
         <div className="topbar-meta">
-          <span className="status-chip">Local-only workspace</span>
-          <span className="meta">Last scan {formatDate(posture.collectedAt)}</span>
+          <div className="topbar-badges">
+            <span className="status-chip">Local-only workspace</span>
+            <span className="meta">Last scan {formatDate(posture.collectedAt)}</span>
+          </div>
+
+          <div className="hero-signal">
+            <div className="signal-copy">
+              <span className="mini-label">Live telemetry</span>
+              <strong>{posture.posture ? `${posture.posture.overallScore}/100` : "--"}</strong>
+              <span>Current posture score</span>
+            </div>
+
+            <div className="signal-grid">
+              <div className="signal-cell">
+                <span className="signal-label">Visible</span>
+                <strong>{filteredFindings.length}</strong>
+              </div>
+              <div className="signal-cell">
+                <span className="signal-label">High</span>
+                <strong>{criticalCount + highCount}</strong>
+              </div>
+              <div className="signal-cell">
+                <span className="signal-label">Delta</span>
+                <strong>{posture.delta?.summary.newCount ?? findings.findings.length}</strong>
+              </div>
+              <div className="signal-cell signal-cell-wide">
+                <span className="signal-label">Profile</span>
+                <strong>{activeProfile?.label ?? "Balanced"}</strong>
+              </div>
+            </div>
+
+            <div className="signal-bars" aria-hidden="true">
+              <span style={{ height: "36%" }} />
+              <span style={{ height: "64%" }} />
+              <span style={{ height: "92%" }} />
+              <span style={{ height: "58%" }} />
+              <span style={{ height: "74%" }} />
+              <span style={{ height: "42%" }} />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -475,53 +513,58 @@ export function Dashboard() {
           </div>
 
           <div className="filter-toolbar">
-            <label className="control">
-              <span className="control-label">Severity</span>
-              <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}>
-                <option value="all">All severities</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-                <option value="info">Info</option>
-              </select>
-            </label>
-            <label className="control">
-              <span className="control-label">Confidence</span>
-              <select value={confidenceFilter} onChange={(event) => setConfidenceFilter(event.target.value as ConfidenceFilter)}>
-                <option value="all">All confidence</option>
-                <option value="authoritative">Authoritative</option>
-                <option value="inferred">Inferred</option>
-                <option value="unverifiable">Unverifiable</option>
-              </select>
-            </label>
-            <label className="control">
-              <span className="control-label">Boundary</span>
-              <select value={boundaryFilter} onChange={(event) => setBoundaryFilter(event.target.value as BoundaryFilter)}>
-                <option value="all">All boundaries</option>
-                <option value="guest">Guest</option>
-                <option value="guest-host interface">Guest-host interface</option>
-                <option value="host-unverifiable">Host-unverifiable</option>
-              </select>
-            </label>
-            <label className="toggle-card">
-              <input type="checkbox" checked={showNewOnly} onChange={(event) => setShowNewOnly(event.target.checked)} />
-              <div>
-                <span className="control-label">Focus mode</span>
-                <span>New since last scan</span>
-              </div>
-            </label>
-            <label className="toggle-card">
-              <input
-                type="checkbox"
-                checked={hideSuppressed}
-                onChange={(event) => setHideSuppressed(event.target.checked)}
-              />
-              <div>
-                <span className="control-label">Suppressed</span>
-                <span>Hide suppressed findings</span>
-              </div>
-            </label>
+            <div className="filter-grid">
+              <label className="control">
+                <span className="control-label">Severity</span>
+                <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}>
+                  <option value="all">All severities</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="info">Info</option>
+                </select>
+              </label>
+              <label className="control">
+                <span className="control-label">Confidence</span>
+                <select value={confidenceFilter} onChange={(event) => setConfidenceFilter(event.target.value as ConfidenceFilter)}>
+                  <option value="all">All confidence</option>
+                  <option value="authoritative">Authoritative</option>
+                  <option value="inferred">Inferred</option>
+                  <option value="unverifiable">Unverifiable</option>
+                </select>
+              </label>
+              <label className="control">
+                <span className="control-label">Boundary</span>
+                <select value={boundaryFilter} onChange={(event) => setBoundaryFilter(event.target.value as BoundaryFilter)}>
+                  <option value="all">All boundaries</option>
+                  <option value="guest">Guest</option>
+                  <option value="guest-host interface">Guest-host interface</option>
+                  <option value="host-unverifiable">Host-unverifiable</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="toggle-row">
+              <label className="toggle-card">
+                <input type="checkbox" checked={showNewOnly} onChange={(event) => setShowNewOnly(event.target.checked)} />
+                <div>
+                  <span className="control-label">Focus mode</span>
+                  <span>New since last scan</span>
+                </div>
+              </label>
+              <label className="toggle-card">
+                <input
+                  type="checkbox"
+                  checked={hideSuppressed}
+                  onChange={(event) => setHideSuppressed(event.target.checked)}
+                />
+                <div>
+                  <span className="control-label">Suppressed</span>
+                  <span>Hide suppressed findings</span>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div className="queue-summary">
