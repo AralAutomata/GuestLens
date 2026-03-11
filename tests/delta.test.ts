@@ -124,7 +124,11 @@ function scan(scanId: string, findings: Finding[]): StoredScan {
         timeSyncHints: [],
         sharedMemoryHints: [],
         rngDevicePresent: true,
-        ballooningEnabled: false
+        ballooningEnabled: false,
+        nestedVirtExposed: false,
+        ksmActive: false,
+        balloonDriverPresent: false,
+        balloonActiveAdjusting: false
       },
       advisoryBundle: null,
       vulnerabilities: []

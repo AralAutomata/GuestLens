@@ -224,6 +224,15 @@ describe("checks — all 22 rules", () => {
     test("does not fire when vsock is disabled", () => {
       expect(findByRule(baseSnapshot(), "guesthost.vsock.present")).toBeUndefined();
     });
+
+    test("has authoritative confidence and guest-host interface boundary", () => {
+      const s = baseSnapshot();
+      s.virtualization.vsockEnabled = true;
+      const f = findByRule(s, "guesthost.vsock.present");
+      expect(f).toBeDefined();
+      expect(f!.confidence).toBe("authoritative");
+      expect(f!.boundary).toBe("guest-host interface");
+    });
   });
 
   // 12. guest.discovery.avahi-active
@@ -441,6 +450,92 @@ describe("checks — all 22 rules", () => {
       expect(f!.confidence).toBe("unverifiable");
       expect(f!.boundary).toBe("host-unverifiable");
       expect(f!.severity).toBe("info");
+    });
+  });
+
+  // 23. guest-host.nested-virt.exposed
+  describe("guest-host.nested-virt.exposed", () => {
+    test("fires when nested virt is exposed (kvm_intel)", () => {
+      const s = baseSnapshot();
+      s.virtualization.nestedVirtExposed = true;
+      const f = findByRule(s, "guest-host.nested-virt.exposed");
+      expect(f).toBeDefined();
+      expect(f!.boundary).toBe("guest-host interface");
+      expect(f!.confidence).toBe("authoritative");
+      expect(f!.severity).toBe("high");
+    });
+
+    test("does not fire when nested virt is not exposed", () => {
+      expect(findByRule(baseSnapshot(), "guest-host.nested-virt.exposed")).toBeUndefined();
+    });
+
+    test("high-isolation bumps severity to critical", () => {
+      const s = baseSnapshot();
+      s.virtualization.nestedVirtExposed = true;
+      const f = runChecks(s, "high-isolation").find((f) => f.ruleId === "guest-host.nested-virt.exposed");
+      expect(f).toBeDefined();
+      expect(f!.severity).toBe("critical");
+    });
+
+    test("paranoid-lab bumps severity to critical", () => {
+      const s = baseSnapshot();
+      s.virtualization.nestedVirtExposed = true;
+      const f = runChecks(s, "paranoid-lab").find((f) => f.ruleId === "guest-host.nested-virt.exposed");
+      expect(f).toBeDefined();
+      expect(f!.severity).toBe("critical");
+    });
+  });
+
+  // 24. guest.ksm.active
+  describe("guest.ksm.active", () => {
+    test("fires when KSM is active", () => {
+      const s = baseSnapshot();
+      s.virtualization.ksmActive = true;
+      const f = findByRule(s, "guest.ksm.active");
+      expect(f).toBeDefined();
+      expect(f!.boundary).toBe("guest");
+      expect(f!.confidence).toBe("authoritative");
+    });
+
+    test("does not fire when KSM is not active", () => {
+      expect(findByRule(baseSnapshot(), "guest.ksm.active")).toBeUndefined();
+    });
+  });
+
+  // 25. guesthost.balloon.present and guesthost.balloon.active
+  describe("guesthost.balloon detection", () => {
+    test("fires balloon.present when driver is loaded", () => {
+      const s = baseSnapshot();
+      s.virtualization.balloonDriverPresent = true;
+      const f = findByRule(s, "guesthost.balloon.present");
+      expect(f).toBeDefined();
+      expect(f!.boundary).toBe("guest-host interface");
+      expect(f!.confidence).toBe("authoritative");
+    });
+
+    test("fires balloon.active when balloon is adjusting memory", () => {
+      const s = baseSnapshot();
+      s.virtualization.balloonActiveAdjusting = true;
+      const f = findByRule(s, "guesthost.balloon.active");
+      expect(f).toBeDefined();
+      expect(f!.boundary).toBe("guest-host interface");
+      expect(f!.confidence).toBe("inferred");
+    });
+
+    test("both findings can fire together", () => {
+      const s = baseSnapshot();
+      s.virtualization.balloonDriverPresent = true;
+      s.virtualization.balloonActiveAdjusting = true;
+      const findings = runChecks(s, "balanced");
+      const present = findings.find((f) => f.ruleId === "guesthost.balloon.present");
+      const active = findings.find((f) => f.ruleId === "guesthost.balloon.active");
+      expect(present).toBeDefined();
+      expect(active).toBeDefined();
+    });
+
+    test("does not fire when balloon not present", () => {
+      expect(findByRule(baseSnapshot(), "guesthost.balloon.present")).toBeUndefined();
+      expect(findByRule(baseSnapshot(), "guesthost.balloon.active")).toBeUndefined();
     });
   });
 

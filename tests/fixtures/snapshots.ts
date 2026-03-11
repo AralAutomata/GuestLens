@@ -102,7 +102,11 @@ export function baseSnapshot(): ScanSnapshot {
       timeSyncHints: [],
       sharedMemoryHints: [],
       rngDevicePresent: true,
-      ballooningEnabled: false
+      ballooningEnabled: false,
+      nestedVirtExposed: false,
+      ksmActive: false,
+      balloonDriverPresent: false,
+      balloonActiveAdjusting: false
     },
     advisoryBundle: {
       bundleId: "sample",

@@ -74,6 +74,9 @@ GuestLens analyzes:
 - public listeners and network discovery exposure
 - cloud metadata route visibility
 - QEMU guest agent, SPICE, VSOCK, shared folders, ballooning, RNG, and other virtualization surfaces
+- **nested virtualization exposure** (kvm_intel/kvm_amd module visibility)
+- **Kernel Samepage Merging (KSM) state** (guest-side memory deduplication activity)
+- **memory balloon driver and active adjustment state** (separate authoritative and inferred findings)
 - package advisory matches using imported offline bundles
 - world-writable or otherwise sensitive permission issues
 - guest-visible environment metadata such as distro family, init system, package manager, and support tier
@@ -89,6 +92,9 @@ Findings are grouped into operator-oriented issue areas with:
 - rationale and operator impact
 - false-positive guidance
 - remediation commands when the issue is actionable from inside the guest
+- **whyGuestCannotKnow** field for findings that cannot be verified from the guest
+
+Findings that were previously `host-unverifiable` are now elevated to `authoritative` or `inferred` when the guest has direct visibility into the control state. This includes nested virtualization exposure, active KSM deduplication, and memory balloon driver presence.
 
 ### Historical Deltas
 
@@ -135,6 +141,18 @@ GuestLens is strict about what the guest can and cannot know.
 - `guest-host interface`: crosses the isolation boundary through integration surfaces
 - `host-unverifiable`: depends on host or hypervisor controls outside guest visibility
 
+### Guest-Host Interface Authoritative Findings
+
+While many guest-host interface findings are `inferred` because they depend on host behavior, GuestLens elevates findings to `authoritative` when the guest has direct visibility:
+
+- **Nested virtualization** (`guest-host.nested-virt.exposed`): The guest can directly verify `/sys/module/kvm_intel` or `/sys/module/kvm_amd` presence. This is authoritative evidence that the host has exposed nested virt support. Severity: `high` (balanced), `critical` (high-isolation/paranoid-lab). Remediation is manual-only from the host side.
+
+- **VSOCK** (`guesthost.vsock.present`): The guest can directly verify `/dev/vsock` device presence and loaded vsock modules. This is authoritative that AF_VSOCK capability exists, though reachable peers remain inferred.
+
+- **Balloon driver** (`guesthost.balloon.present`): The guest can directly verify `/sys/bus/virtio/drivers/virtio_balloon` presence. This is authoritative that the driver is loaded and ready.
+
+- **Balloon active adjustment** (`guesthost.balloon.active`): Derived from `/proc/meminfo` BalloonInflate/Deflate fields. This is `inferred` because it depends on interpreting kernel memory statistics.
+
 ### Important Limitation
 
 GuestLens does **not** prove:
@@ -148,6 +166,44 @@ GuestLens does **not** prove:
 - final escape resistance
 
 Those controls matter, but they must be validated from the host or hypervisor layer, not from inside the guest.
+
+## GuestLens Detection Capabilities
+
+GuestLens includes specialized detection for virtualization and isolation-related concerns:
+
+### Nested Virtualization Detection
+
+When the host exposes nested virtualization to the guest via `/sys/module/kvm_intel` or `/sys/module/kvm_amd`, GuestLens reports this as an authoritative finding with elevated severity on high-isolation profiles. This is a host-side configuration that cannot be remediated from within the guest.
+
+**Rule**: `guest-host.nested-virt.exposed`  
+**Confidence**: `authoritative`  
+**Severity**: `high` (balanced), `critical` (high-isolation/paranoid-lab)
+
+### Kernel Samepage Merging (KSM)
+
+GuestLens detects when the guest kernel is actively deduplicating memory pages by reading `/sys/kernel/mm/ksm/run`. This is guest-side authoritative evidence of KSM participation. Note: GuestLens can prove the guest is participating, but cannot prove the host is merging pages across VMs.
+
+**Rule**: `guest.ksm.active`  
+**Confidence**: `authoritative`  
+**Severity**: `medium`
+
+### Memory Balloon Detection
+
+GuestLens distinguishes two separate balloon states:
+
+1. **Driver present** (`guesthost.balloon.present`): Authoritative finding when `/sys/bus/virtio/drivers/virtio_balloon` exists. The guest can prove the driver is loaded.
+
+2. **Active adjustment** (`guesthost.balloon.active`): Inferred finding based on BalloonInflate/Deflate fields in `/proc/meminfo`. The guest infers active adjustment from kernel memory statistics.
+
+This separation gives operators clearer visibility into whether the balloon capability exists versus whether it's actively being used.
+
+### VSOCK Interface Verification
+
+GuestLens verifies AF_VSOCK support through direct device and module inspection. The finding is authoritative because the guest can directly prove its own AF_VSOCK capability, though what services are reachable over the interface remains inferred.
+
+**Rule**: `guesthost.vsock.present`  
+**Confidence**: `authoritative`  
+**Boundary**: `guest-host interface`
 
 ## Supported Environments
 
@@ -184,6 +240,12 @@ The collector is responsible for reading data such as:
 - firewall state
 - LSM state
 - virtualization hints
+- **nested virtualization exposure** (`detectNestedVirtualization()`)
+- **KSM active state** (`detectKsmActive()`)
+- **balloon driver presence** (`detectBalloonDriverPresent()`)
+- **balloon active adjustment** (`detectBalloonActiveAdjusting()`)
+
+Key collector functions are exported for unit testing, enabling isolated verification of detection logic without requiring full snapshot collection.
 
 ### Analyzer
 

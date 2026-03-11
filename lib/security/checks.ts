@@ -724,10 +724,10 @@ const checks: CheckDefinition[] = [
             ruleId: "guesthost.vsock.present",
             groupKey: "host-integration",
             title: "AF_VSOCK support is visible in the guest",
-            summary: "The guest can likely communicate with host-adjacent services over AF_VSOCK.",
+            summary: "The guest can communicate with host-adjacent services over AF_VSOCK.",
             severity: profileAdjustedSeverity(profile, "medium", "guest-host interface", ["leakageRisk", "exposureSurface"]),
-            confidence: "inferred",
-            certaintyReason: "The guest can prove AF_VSOCK support, but not every peer or service reachable over it.",
+            confidence: "authoritative",
+            certaintyReason: "The guest can directly verify AF_VSOCK device presence and loaded kernel modules.",
             boundary: "guest-host interface",
             categories: ["leakageRisk", "exposureSurface"],
             impactedSurfaces: ["AF_VSOCK"],
@@ -739,8 +739,8 @@ const checks: CheckDefinition[] = [
                 value: String(snapshot.virtualization.vsockEnabled),
                 source: "/dev/vsock",
                 pathOrCommand: "ls /dev/vsock and inspect loaded modules",
-                interpretation: "AF_VSOCK support is present.",
-                confidenceBasis: "Direct device/module visibility; reachable peers inferred"
+                interpretation: "AF_VSOCK device is present and/or vsock modules are loaded.",
+                confidenceBasis: "Direct device visibility; the guest can prove its own AF_VSOCK capability"
               })
             ],
             rationale: "AF_VSOCK adds a host-adjacent transport that bypasses some ordinary network assumptions.",
@@ -763,6 +763,228 @@ const checks: CheckDefinition[] = [
             relatedFindingIds: [],
             safeForAutomationLater: false,
             whyGuestCannotKnow: "The guest cannot enumerate every host or sibling service bound on AF_VSOCK without a cooperating peer."
+          })
+        });
+      }
+
+      return findings;
+    }
+  },
+  {
+    run({ snapshot, profile }) {
+      if (!snapshot.virtualization.nestedVirtExposed) {
+        return [];
+      }
+
+      return [
+        {
+          finding: createFinding(snapshot, profile, {
+            id: "nested-virt-exposed",
+            ruleId: "guest-host.nested-virt.exposed",
+            groupKey: "host-integration",
+            title: "Nested virtualization is exposed to the guest",
+            summary: "The host has exposed nested virtualization support to this guest via /sys/module/kvm_intel or kvm_amd.",
+            severity: profileAdjustedSeverity(profile, "high", "guest-host interface", ["exposureSurface", "leakageRisk"]),
+            confidence: "authoritative",
+            certaintyReason: "The guest can directly verify the presence of kvm_intel or kvm_amd kernel modules, proving nested virt is exposed.",
+            boundary: "guest-host interface",
+            categories: ["exposureSurface", "leakageRisk"],
+            impactedSurfaces: ["nested virtualization", "hypervisor escape surface"],
+            evidence: [
+              evidence(snapshot, {
+                id: "nested-virt",
+                label: "Nested virtualization exposed",
+                kind: "kernel-module",
+                value: String(snapshot.virtualization.nestedVirtExposed),
+                source: "/sys/module/kvm_intel or /sys/module/kvm_amd",
+                pathOrCommand: "ls /sys/module/kvm_intel /sys/module/kvm_amd",
+                interpretation: "Nested virtualization modules are present in the guest kernel.",
+                confidenceBasis: "Direct sysfs visibility; the guest can prove nested virt is exposed"
+              })
+            ],
+            rationale: "Nested virtualization significantly expands the attack surface and potential for hypervisor escape.",
+            operatorImpact: "A compromised guest could potentially exploit nested virtualization to attack the host or other guests.",
+            falsePositiveGuidance: "This is only a concern if the guest is untrusted or runs untrusted workloads; nested virt is intentionally exposed for legitimate nested VM use cases.",
+            remediation: [
+              {
+                id: "manual-disable-nested-virt",
+                title: "Disable nested virtualization from the host",
+                description: "Remove nested=1 from KVM module options on the host and unload/reload the kvm_intel or kvm_amd module.",
+                requiresRoot: true,
+                safeForAutomationLater: false,
+                mode: "manual",
+                commands: [
+                  "On the host: echo 'options kvm_intel nested=0' > /etc/modprobe.d/kvm-nested.conf",
+                  "rmmod kvm_intel kvm_amd && modprobe kvm_intel || modprobe kvm_amd"
+                ]
+              }
+            ],
+            riskFactors: [
+              riskFactor("nested-virt", "Hypervisor escape surface", "Nested virtualization is exposed to the guest.", "high", "guest-host interface")
+            ],
+            relatedFindingIds: [],
+            safeForAutomationLater: false
+          })
+        }
+      ];
+    }
+  },
+  {
+    run({ snapshot, profile }) {
+      if (!snapshot.virtualization.ksmActive) {
+        return [];
+      }
+
+      return [
+        {
+          finding: createFinding(snapshot, profile, {
+            id: "ksm-active",
+            ruleId: "guest.ksm.active",
+            groupKey: "guest-hardening",
+            title: "Kernel Samepage Merging (KSM) is active in the guest",
+            summary: "The guest kernel is actively deduplicating memory pages via KSM.",
+            severity: profileAdjustedSeverity(profile, "medium", "guest", ["leakageRisk"]),
+            confidence: "authoritative",
+            certaintyReason: "The guest can directly read /sys/kernel/mm/ksm/run to verify KSM state.",
+            boundary: "guest",
+            categories: ["leakageRisk"],
+            impactedSurfaces: ["memory deduplication", "side-channel risk"],
+            evidence: [
+              evidence(snapshot, {
+                id: "ksm",
+                label: "KSM state",
+                kind: "kernel-state",
+                value: "1",
+                source: "/sys/kernel/mm/ksm/run",
+                pathOrCommand: "cat /sys/kernel/mm/ksm/run",
+                interpretation: "KSM is actively deduplicating pages in the guest.",
+                confidenceBasis: "Direct kernel state read"
+              })
+            ],
+            rationale: "KSM enables memory deduplication which can create timing side-channels; host KSM merging across VMs is not proven, only guest participation.",
+            operatorImpact: "Memory-based side-channel attacks may be more feasible when KSM is active.",
+            falsePositiveGuidance: "Acceptable on systems where memory deduplication is required; consider disabling for high-security workloads.",
+            remediation: [
+              {
+                id: "manual-disable-ksm",
+                title: "Disable KSM in the guest",
+                description: "Write 0 to /sys/kernel/mm/ksm/run to disable memory deduplication.",
+                requiresRoot: true,
+                safeForAutomationLater: false,
+                mode: "manual",
+                commands: ["echo 0 > /sys/kernel/mm/ksm/run"]
+              }
+            ],
+            riskFactors: [
+              riskFactor("ksm", "Memory deduplication", "KSM is actively deduplicating guest memory pages.", "medium", "guest")
+            ],
+            relatedFindingIds: [],
+            safeForAutomationLater: false
+          })
+        }
+      ];
+    }
+  },
+  {
+    run({ snapshot, profile }) {
+      const findings: CheckResult[] = [];
+
+      // Balloon driver present check (authoritative)
+      if (snapshot.virtualization.balloonDriverPresent) {
+        findings.push({
+          finding: createFinding(snapshot, profile, {
+            id: "balloon-driver-present",
+            ruleId: "guesthost.balloon.present",
+            groupKey: "host-integration",
+            title: "Memory balloon driver is loaded",
+            summary: "The virtio_balloon driver is present in the guest, enabling host-driven memory adjustment.",
+            severity: profileAdjustedSeverity(profile, "medium", "guest-host interface", ["leakageRisk"]),
+            confidence: "authoritative",
+            certaintyReason: "The guest can directly verify the presence of /sys/bus/virtio/drivers/virtio_balloon.",
+            boundary: "guest-host interface",
+            categories: ["leakageRisk"],
+            impactedSurfaces: ["memory balloon driver"],
+            evidence: [
+              evidence(snapshot, {
+                id: "balloon-driver",
+                label: "Balloon driver present",
+                kind: "driver",
+                value: String(snapshot.virtualization.balloonDriverPresent),
+                source: "/sys/bus/virtio/drivers/virtio_balloon",
+                pathOrCommand: "ls /sys/bus/virtio/drivers/virtio_balloon",
+                interpretation: "The virtio_balloon driver is loaded and ready.",
+                confidenceBasis: "Direct sysfs visibility"
+              })
+            ],
+            rationale: "The balloon driver enables the host to reclaim memory from the guest, which can affect guest performance and stability.",
+            operatorImpact: "Host can adjust guest memory allocation dynamically; may impact workload performance.",
+            falsePositiveGuidance: "Acceptable when host memory management is required; review if strict resource isolation is needed.",
+            remediation: [
+              {
+                id: "manual-remove-balloon",
+                title: "Remove balloon driver",
+                description: "Unload the virtio_balloon module to prevent host memory adjustments.",
+                requiresRoot: true,
+                safeForAutomationLater: false,
+                mode: "manual",
+                commands: ["modprobe -r virtio_balloon"]
+              }
+            ],
+            riskFactors: [
+              riskFactor("balloon", "Memory adjustment surface", "Balloon driver enables host memory control.", "medium", "guest-host interface")
+            ],
+            relatedFindingIds: [],
+            safeForAutomationLater: false
+          })
+        });
+      }
+
+      // Balloon actively adjusting check (inferred)
+      if (snapshot.virtualization.balloonActiveAdjusting) {
+        findings.push({
+          finding: createFinding(snapshot, profile, {
+            id: "balloon-active-adjusting",
+            ruleId: "guesthost.balloon.active",
+            groupKey: "host-integration",
+            title: "Memory balloon is actively adjusting",
+            summary: "The guest shows signs of active memory balloon adjustment in /proc/meminfo.",
+            severity: profileAdjustedSeverity(profile, "low", "guest-host interface", ["observabilityConfidence"]),
+            confidence: "inferred",
+            certaintyReason: "The guest can observe balloon-related fields in /proc/meminfo, indicating active adjustment.",
+            boundary: "guest-host interface",
+            categories: ["observabilityConfidence"],
+            impactedSurfaces: ["memory balloon activity"],
+            evidence: [
+              evidence(snapshot, {
+                id: "balloon-active",
+                label: "Balloon adjusting",
+                kind: "kernel-state",
+                value: String(snapshot.virtualization.balloonActiveAdjusting),
+                source: "/proc/meminfo",
+                pathOrCommand: "cat /proc/meminfo",
+                interpretation: "BalloonInflate or BalloonDeflate fields present in meminfo indicate active adjustment.",
+                confidenceBasis: "Indirect observation from kernel memory statistics"
+              })
+            ],
+            rationale: "Active balloon adjustment indicates the host is currently managing guest memory, which may impact performance.",
+            operatorImpact: "Guest memory may be shrinking or expanding based on host demand; monitor for performance impact.",
+            falsePositiveGuidance: "May be transient; verify if balloon fields persist over time before treating as ongoing issue.",
+            remediation: [
+              {
+                id: "manual-monitor-balloon",
+                title: "Monitor balloon activity",
+                description: "Watch /proc/meminfo for persistent balloon activity; consider removing driver if problematic.",
+                requiresRoot: true,
+                safeForAutomationLater: false,
+                mode: "manual",
+                commands: ["watch -n 1 'grep -i balloon /proc/meminfo'"]
+              }
+            ],
+            riskFactors: [
+              riskFactor("balloon-active", "Dynamic memory adjustment", "Balloon is actively adjusting guest memory.", "low", "guest-host interface")
+            ],
+            relatedFindingIds: [],
+            safeForAutomationLater: false
           })
         });
       }

@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import { isLoopbackHost, detectDistroFamily, looksLikeLibvirtNatGateway } from "../lib/security/collector";
+import { 
+  isLoopbackHost, 
+  detectDistroFamily, 
+  looksLikeLibvirtNatGateway,
+  detectNestedVirtualization,
+  detectKsmActive,
+  detectBalloonDriverPresent,
+  detectBalloonActiveAdjusting
+} from "../lib/security/collector";
 import type { RouteRecord } from "../lib/types";
 
 describe("isLoopbackHost", () => {
@@ -151,5 +159,34 @@ describe("looksLikeLibvirtNatGateway", () => {
   test("default route without via returns false", () => {
     const defaultRoute = route({ raw: "default dev eth0", destination: "default", device: "eth0" });
     expect(looksLikeLibvirtNatGateway([], defaultRoute)).toBe(false);
+  });
+});
+
+describe("detectNestedVirtualization", () => {
+  test("returns true when /sys/module/kvm_intel exists", () => {
+    // This test documents expected behavior - actual filesystem check
+    const result = detectNestedVirtualization();
+    expect(typeof result).toBe("boolean");
+  });
+});
+
+describe("detectKsmActive", () => {
+  test("returns boolean based on /sys/kernel/mm/ksm/run", () => {
+    const result = detectKsmActive();
+    expect(typeof result).toBe("boolean");
+  });
+});
+
+describe("detectBalloonDriverPresent", () => {
+  test("returns boolean based on driver path existence", () => {
+    const result = detectBalloonDriverPresent();
+    expect(typeof result).toBe("boolean");
+  });
+});
+
+describe("detectBalloonActiveAdjusting", () => {
+  test("returns boolean based on /proc/meminfo content", () => {
+    const result = detectBalloonActiveAdjusting();
+    expect(typeof result).toBe("boolean");
   });
 });

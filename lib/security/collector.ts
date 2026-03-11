@@ -180,6 +180,31 @@ export function looksLikeLibvirtNatGateway(routes: RouteRecord[], defaultRoute?:
   return onVirbr || onBridge || (hasSubnetRoute && gateway.endsWith(".1"));
 }
 
+// Nested virtualization detection: check if host has exposed nested virt support
+export function detectNestedVirtualization(): boolean {
+  return existsSync("/sys/module/kvm_intel") || existsSync("/sys/module/kvm_amd");
+}
+
+// KSM (Kernel Samepage Merging) detection: check if guest kernel is actively deduplicating
+export function detectKsmActive(): boolean {
+  const val = safeRead("/sys/kernel/mm/ksm/run");
+  return val?.trim() === "1";
+}
+
+// Balloon driver detection: check if virtio_balloon driver is loaded
+export function detectBalloonDriverPresent(): boolean {
+  return existsSync("/sys/bus/virtio/drivers/virtio_balloon");
+}
+
+// Balloon active detection: check if balloon is actively adjusting memory
+export function detectBalloonActiveAdjusting(): boolean {
+  const meminfo = safeRead("/proc/meminfo");
+  if (!meminfo) return false;
+  // Check for balloon-related fields in meminfo
+  // BalloonInflate and BalloonDeflate fields indicate active adjustment
+  return /BalloonInflate|BalloonDeflate/i.test(meminfo);
+}
+
 function parseOsRelease(): { distro: string; version: string } {
   const raw = safeRead("/etc/os-release");
   if (!raw) {
@@ -823,7 +848,11 @@ function collectVirtualization(mounts: MountRecord[], services: ServiceRecord[],
     timeSyncHints: modules.filter((moduleName) => moduleName.includes("ptp") || moduleName.includes("hyperv")),
     sharedMemoryHints: modules.filter((moduleName) => moduleName.includes("ivshmem") || moduleName.includes("virtio_pmem")),
     rngDevicePresent: existsSync("/dev/hwrng"),
-    ballooningEnabled: modules.includes("virtio_balloon")
+    ballooningEnabled: modules.includes("virtio_balloon"),
+    nestedVirtExposed: detectNestedVirtualization(),
+    ksmActive: detectKsmActive(),
+    balloonDriverPresent: detectBalloonDriverPresent(),
+    balloonActiveAdjusting: detectBalloonActiveAdjusting()
   };
 }
 

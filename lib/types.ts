@@ -210,6 +210,10 @@ export interface VirtualizationSurfaceState {
   sharedMemoryHints: string[];
   rngDevicePresent: boolean;
   ballooningEnabled: boolean;
+  nestedVirtExposed: boolean;
+  ksmActive: boolean;
+  balloonDriverPresent: boolean;
+  balloonActiveAdjusting: boolean;
 }
 
 export interface NetworkState {
