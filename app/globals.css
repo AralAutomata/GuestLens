@@ -1,26 +1,25 @@
 :root {
   color-scheme: light;
-  --bg: #f6e8eb;
-  --bg-deep: #ead4d9;
-  --bg-soft: #fff2f4;
-  --surface: rgba(255, 248, 249, 0.78);
-  --surface-strong: rgba(255, 250, 251, 0.94);
-  --surface-muted: rgba(249, 236, 239, 0.92);
-  --surface-heavy: rgba(67, 32, 42, 0.9);
-  --surface-panel: linear-gradient(180deg, rgba(255, 248, 250, 0.96), rgba(248, 234, 238, 0.92));
-  --border: rgba(102, 50, 64, 0.12);
-  --border-strong: rgba(166, 58, 89, 0.24);
-  --text: #26151b;
-  --muted: #70545e;
-  --muted-strong: #4d303a;
+  --bg: #f7e4ea;
+  --bg-deep: #efd2dc;
+  --bg-soft: #fff5f8;
+  --surface: rgba(255, 248, 250, 0.92);
+  --surface-strong: rgba(255, 251, 252, 0.98);
+  --surface-muted: rgba(251, 239, 243, 0.96);
+  --surface-panel: linear-gradient(180deg, rgba(255, 249, 251, 0.98), rgba(250, 238, 242, 0.96));
+  --border: rgba(109, 53, 70, 0.12);
+  --border-strong: rgba(181, 71, 103, 0.24);
+  --text: #231318;
+  --muted: #634851;
+  --muted-strong: #442a33;
   --good: #197252;
   --warn: #9f6510;
   --bad: #b33b55;
-  --accent: #a63a59;
-  --accent-strong: #7a213d;
-  --accent-soft: rgba(230, 183, 197, 0.28);
-  --shadow-sm: 0 14px 32px rgba(74, 33, 44, 0.08);
-  --shadow-md: 0 26px 72px rgba(74, 33, 44, 0.14);
+  --accent: #b54767;
+  --accent-strong: #8f2f4e;
+  --accent-soft: rgba(224, 164, 184, 0.24);
+  --shadow-sm: 0 8px 24px rgba(74, 33, 44, 0.06);
+  --shadow-md: 0 16px 44px rgba(74, 33, 44, 0.1);
   --radius-xl: 30px;
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -36,24 +35,12 @@ body {
   margin: 0;
   min-height: 100%;
   color: var(--text);
-  background:
-    radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.55), transparent 22%),
-    radial-gradient(circle at 86% 14%, rgba(217, 146, 171, 0.22), transparent 24%),
-    linear-gradient(180deg, #fef7f8 0%, var(--bg) 56%, var(--bg-deep) 100%);
+  background: linear-gradient(180deg, #fff8fa 0%, var(--bg) 54%, var(--bg-deep) 100%);
   font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
 }
 
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(rgba(138, 79, 97, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(138, 79, 97, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(circle at center, black 42%, transparent 92%);
-  opacity: 0.45;
+  content: none;
 }
 
 button,
@@ -105,7 +92,6 @@ code {
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   background: var(--surface);
-  backdrop-filter: blur(16px);
   box-shadow: var(--shadow-sm);
 }
 
@@ -206,9 +192,7 @@ code {
 }
 
 .overview-panel {
-  background:
-    radial-gradient(circle at top right, rgba(210, 123, 151, 0.22), transparent 26%),
-    linear-gradient(180deg, rgba(255, 248, 250, 0.98), rgba(245, 229, 234, 0.94));
+  background: linear-gradient(180deg, rgba(255, 249, 250, 0.98), rgba(248, 235, 240, 0.96));
   box-shadow: var(--shadow-md);
 }
 
@@ -264,7 +248,7 @@ select {
   justify-content: center;
   min-height: 46px;
   padding: 0 18px;
-  background: linear-gradient(180deg, #bc4b6a, #a63a59);
+  background: linear-gradient(180deg, #cb6280, #b54767);
   color: #fff7f9;
   font-weight: 800;
   box-shadow: 0 16px 32px rgba(166, 58, 89, 0.22);
@@ -316,8 +300,7 @@ select:focus-visible {
   padding: 18px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background: rgba(255, 249, 250, 0.82);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background: rgba(255, 250, 251, 0.98);
 }
 
 .metric-card strong {
@@ -326,12 +309,12 @@ select:focus-visible {
 }
 
 .metric-critical {
-  background: linear-gradient(180deg, rgba(255, 236, 241, 0.96), rgba(251, 222, 230, 0.92));
+  background: linear-gradient(180deg, rgba(255, 236, 241, 0.98), rgba(252, 226, 234, 0.96));
   border-color: rgba(179, 59, 85, 0.18);
 }
 
 .metric-neutral {
-  background: linear-gradient(180deg, rgba(255, 250, 251, 0.94), rgba(247, 234, 237, 0.92));
+  background: linear-gradient(180deg, rgba(255, 251, 252, 0.98), rgba(249, 239, 242, 0.96));
 }
 
 .right-rail-stack,
@@ -346,7 +329,7 @@ select:focus-visible {
 }
 
 .posture-panel {
-  background: linear-gradient(180deg, rgba(248, 235, 239, 0.96), rgba(255, 249, 250, 0.9));
+  background: linear-gradient(180deg, rgba(251, 239, 243, 0.98), rgba(255, 251, 252, 0.96));
 }
 
 .compact-grid {
@@ -427,7 +410,7 @@ select:focus-visible {
 }
 
 .score-card {
-  background: linear-gradient(180deg, rgba(255, 250, 251, 0.95), rgba(247, 235, 238, 0.94));
+  background: linear-gradient(180deg, rgba(255, 251, 252, 0.98), rgba(249, 239, 242, 0.96));
 }
 
 .score-card h3 {
@@ -450,17 +433,15 @@ select:focus-visible {
 }
 
 .findings-panel {
-  background:
-    linear-gradient(180deg, rgba(50, 22, 31, 0.9), rgba(69, 31, 42, 0.96)),
-    linear-gradient(180deg, rgba(255, 247, 249, 0.1), rgba(255, 247, 249, 0));
-  color: #fff6f8;
-  border-color: rgba(233, 194, 205, 0.14);
+  background: linear-gradient(180deg, rgba(255, 247, 250, 0.98), rgba(247, 232, 237, 0.96));
+  color: var(--text);
+  border-color: rgba(181, 71, 103, 0.16);
 }
 
 .findings-panel .panel-kicker,
 .findings-panel .control-label,
 .findings-panel .subsection-label {
-  color: #f2adbf;
+  color: var(--accent);
 }
 
 .findings-panel .section-copy,
@@ -469,7 +450,7 @@ select:focus-visible {
 .findings-panel .finding-card p,
 .findings-panel .finding-group p,
 .findings-panel .empty {
-  color: rgba(255, 236, 241, 0.78);
+  color: var(--muted);
 }
 
 .filter-toolbar {
@@ -480,8 +461,8 @@ select:focus-visible {
   display: grid;
   gap: 10px;
   padding: 14px 16px;
-  background: rgba(255, 245, 247, 0.08);
-  border-color: rgba(240, 201, 212, 0.1);
+  background: rgba(255, 250, 251, 0.86);
+  border-color: rgba(181, 71, 103, 0.1);
   box-shadow: none;
 }
 
@@ -505,8 +486,8 @@ select {
   gap: 12px;
   align-items: center;
   padding: 14px 16px;
-  background: rgba(255, 245, 247, 0.08);
-  border-color: rgba(240, 201, 212, 0.1);
+  background: rgba(255, 250, 251, 0.86);
+  border-color: rgba(181, 71, 103, 0.1);
   box-shadow: none;
 }
 
@@ -524,9 +505,9 @@ select {
 }
 
 .queue-summary span {
-  background: rgba(255, 245, 247, 0.08);
-  border-color: rgba(240, 201, 212, 0.12);
-  color: rgba(255, 235, 241, 0.86);
+  background: rgba(255, 250, 251, 0.92);
+  border-color: rgba(181, 71, 103, 0.12);
+  color: var(--muted-strong);
 }
 
 .group-list {
@@ -535,9 +516,9 @@ select {
 
 .finding-group {
   padding: 22px;
-  background: rgba(255, 248, 250, 0.06);
-  border-color: rgba(240, 201, 212, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: rgba(255, 252, 252, 0.76);
+  border-color: rgba(181, 71, 103, 0.12);
+  box-shadow: none;
 }
 
 .group-head,
@@ -564,9 +545,9 @@ select {
 }
 
 .surface-chip {
-  background: rgba(255, 240, 245, 0.1);
-  border-color: rgba(240, 201, 212, 0.12);
-  color: rgba(255, 236, 241, 0.92);
+  background: rgba(253, 241, 245, 0.96);
+  border-color: rgba(181, 71, 103, 0.1);
+  color: var(--muted-strong);
 }
 
 .badge-hot {
@@ -617,8 +598,8 @@ select {
 
 .finding-card {
   padding: 18px;
-  background: linear-gradient(180deg, rgba(255, 248, 250, 0.98), rgba(245, 230, 235, 0.96));
-  border-color: rgba(166, 58, 89, 0.12);
+  background: rgba(255, 252, 252, 0.98);
+  border-color: rgba(181, 71, 103, 0.12);
 }
 
 .finding-top h4 {
@@ -634,7 +615,7 @@ select {
 .finding-block {
   padding: 16px;
   border-radius: var(--radius-md);
-  background: rgba(255, 250, 251, 0.84);
+  background: rgba(251, 241, 244, 0.78);
   border: 1px solid rgba(102, 50, 64, 0.08);
 }
 
@@ -648,7 +629,7 @@ select {
   padding: 14px 16px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(102, 50, 64, 0.08);
-  background: rgba(255, 252, 252, 0.74);
+  background: rgba(255, 250, 251, 0.92);
 }
 
 .details-block summary {
@@ -665,7 +646,7 @@ select {
 
 .evidence-item {
   padding: 16px;
-  background: rgba(255, 250, 251, 0.7);
+  background: rgba(255, 247, 249, 0.86);
 }
 
 .command-shell {
@@ -676,7 +657,7 @@ select {
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(247, 239, 241, 0.94);
+  background: rgba(250, 241, 244, 0.96);
   border: 1px solid rgba(102, 50, 64, 0.07);
 }
 
@@ -709,7 +690,7 @@ select {
 .priority-item,
 .empty {
   padding: 16px;
-  background: linear-gradient(180deg, rgba(255, 250, 251, 0.94), rgba(247, 234, 237, 0.94));
+  background: rgba(255, 251, 252, 0.98);
 }
 
 .delta-line {
