@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "insidejobvm",
+      "name": "hostguard-linux",
       "dependencies": {
         "next": "^15.2.0",
         "react": "^19.0.0",

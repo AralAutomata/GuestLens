@@ -252,14 +252,14 @@ code {
 .hero-actions {
   position: relative;
   z-index: 1;
-  grid-template-columns: repeat(2, max-content) minmax(0, 1fr);
+  grid-template-columns: repeat(3, max-content) minmax(0, 1fr);
   align-items: center;
 }
 
 .hero-highlights {
   position: relative;
   z-index: 1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .highlight-card,
@@ -484,7 +484,7 @@ select:focus-visible {
 }
 
 .filter-toolbar {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(220px, auto);
+  grid-template-columns: repeat(3, minmax(0, 1fr)) repeat(2, minmax(220px, auto));
   align-items: stretch;
   margin-bottom: 14px;
 }
@@ -573,6 +573,11 @@ select {
   border-color: rgba(234, 88, 12, 0.18);
   color: #c2410c;
   background: rgba(255, 237, 213, 0.95);
+}
+
+.badge-muted {
+  background: rgba(241, 245, 249, 0.95);
+  color: var(--muted);
 }
 
 .severity-critical,
@@ -679,6 +684,25 @@ select {
   color: var(--muted-strong);
 }
 
+.suppression-row,
+.compare-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.suppression-row {
+  grid-template-columns: repeat(2, max-content) minmax(0, 1fr);
+  align-items: center;
+  margin-top: 14px;
+}
+
+.suppression-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
 .history-list {
   margin-top: 12px;
 }
@@ -731,7 +755,8 @@ select {
   .hero-highlights,
   .profile-switcher,
   .finding-grid,
-  .details-grid {
+  .details-grid,
+  .compare-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -767,6 +792,7 @@ select {
   .filter-toolbar,
   .finding-grid,
   .details-grid,
+  .compare-controls,
   .console-side {
     grid-template-columns: 1fr;
   }
@@ -815,6 +841,10 @@ select {
   }
 
   .command-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .suppression-row {
     grid-template-columns: 1fr;
   }
 }

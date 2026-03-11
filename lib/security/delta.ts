@@ -10,6 +10,7 @@ function confidenceRank(confidence: ConfidenceLevel): number {
 
 function signatureForFinding(finding: Finding): string {
   return JSON.stringify({
+    fingerprint: finding.fingerprint,
     severity: finding.severity,
     confidence: finding.confidence,
     summary: finding.summary,
@@ -20,12 +21,14 @@ function signatureForFinding(finding: Finding): string {
 
 export function buildScanDelta(previous: StoredScan | null, current: StoredScan): ScanDelta {
   if (!previous) {
+    const suppressedFindingIds = current.findings.filter((finding) => finding.suppressed).map((finding) => finding.id);
     return {
       fromScanId: null,
       toScanId: current.scanId,
       newFindingIds: current.findings.map((finding) => finding.id),
       resolvedFindingIds: [],
       changedFindingIds: [],
+      suppressedFindingIds,
       severityUpgrades: [],
       confidenceDowngrades: [],
       unchangedCount: 0,
@@ -33,6 +36,7 @@ export function buildScanDelta(previous: StoredScan | null, current: StoredScan)
         newCount: current.findings.length,
         resolvedCount: 0,
         changedCount: 0,
+        suppressedCount: suppressedFindingIds.length,
         severityUpgradeCount: 0,
         confidenceDowngradeCount: 0
       }
@@ -45,6 +49,7 @@ export function buildScanDelta(previous: StoredScan | null, current: StoredScan)
   const newFindingIds = current.findings.filter((finding) => !previousById.has(finding.id)).map((finding) => finding.id);
   const resolvedFindingIds = previous.findings.filter((finding) => !currentById.has(finding.id)).map((finding) => finding.id);
   const changedFindingIds: string[] = [];
+  const suppressedFindingIds = current.findings.filter((finding) => finding.suppressed).map((finding) => finding.id);
   const severityUpgrades: string[] = [];
   const confidenceDowngrades: string[] = [];
   let unchangedCount = 0;
@@ -77,6 +82,7 @@ export function buildScanDelta(previous: StoredScan | null, current: StoredScan)
     newFindingIds,
     resolvedFindingIds,
     changedFindingIds,
+    suppressedFindingIds,
     severityUpgrades,
     confidenceDowngrades,
     unchangedCount,
@@ -84,6 +90,7 @@ export function buildScanDelta(previous: StoredScan | null, current: StoredScan)
       newCount: newFindingIds.length,
       resolvedCount: resolvedFindingIds.length,
       changedCount: changedFindingIds.length,
+      suppressedCount: suppressedFindingIds.length,
       severityUpgradeCount: severityUpgrades.length,
       confidenceDowngradeCount: confidenceDowngrades.length
     }

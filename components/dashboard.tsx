@@ -2,7 +2,17 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import type { Finding, FindingGroup, PolicyProfile, PolicyProfileDefinition, PostureSummary, ScanDelta } from "@/lib/types";
+import type {
+  AdvisoryBundleStatus,
+  EnvironmentMetadata,
+  Finding,
+  FindingGroup,
+  PolicyProfile,
+  PolicyProfileDefinition,
+  PostureSummary,
+  ScanDelta,
+  SuppressionRecord
+} from "@/lib/types";
 
 interface HistoryEntry {
   scanId: string;
@@ -20,6 +30,8 @@ interface PostureResponse {
   scanId: string | null;
   collectedAt: string | null;
   profile: PolicyProfile | null;
+  environment: EnvironmentMetadata | null;
+  advisoryBundle: AdvisoryBundleStatus | null;
   delta: ScanDelta | null;
 }
 
@@ -38,6 +50,14 @@ interface HistoryResponse {
 interface ProfilesResponse {
   activeProfile: PolicyProfile;
   profiles: PolicyProfileDefinition[];
+}
+
+interface SuppressionsResponse {
+  suppressions: SuppressionRecord[];
+}
+
+interface DiffResponse {
+  diff: ScanDelta;
 }
 
 type SeverityFilter = "all" | Finding["severity"];
@@ -81,6 +101,8 @@ export function Dashboard() {
     scanId: null,
     collectedAt: null,
     profile: null,
+    environment: null,
+    advisoryBundle: null,
     delta: null
   });
   const [findings, setFindings] = useState<FindingsResponse>({
@@ -99,27 +121,37 @@ export function Dashboard() {
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilter>("all");
   const [boundaryFilter, setBoundaryFilter] = useState<BoundaryFilter>("all");
   const [showNewOnly, setShowNewOnly] = useState(false);
+  const [hideSuppressed, setHideSuppressed] = useState(true);
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+  const [suppressions, setSuppressions] = useState<SuppressionRecord[]>([]);
+  const [compareFrom, setCompareFrom] = useState<string | null>(null);
+  const [compareTo, setCompareTo] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<ScanDelta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   async function loadAll() {
     setError(null);
-    const [postureResponse, findingsResponse, historyResponse, profilesResponse] = await Promise.all([
+    const [postureResponse, findingsResponse, historyResponse, profilesResponse, suppressionsResponse] = await Promise.all([
       fetch("/api/posture", { cache: "no-store" }),
       fetch("/api/findings", { cache: "no-store" }),
       fetch("/api/history", { cache: "no-store" }),
-      fetch("/api/profiles", { cache: "no-store" })
+      fetch("/api/profiles", { cache: "no-store" }),
+      fetch("/api/suppressions", { cache: "no-store" })
     ]);
 
-    if (!postureResponse.ok || !findingsResponse.ok || !historyResponse.ok || !profilesResponse.ok) {
+    if (!postureResponse.ok || !findingsResponse.ok || !historyResponse.ok || !profilesResponse.ok || !suppressionsResponse.ok) {
       throw new Error("Failed to load one or more dashboard resources.");
     }
 
     setPosture((await postureResponse.json()) as PostureResponse);
     setFindings((await findingsResponse.json()) as FindingsResponse);
-    setHistory(((await historyResponse.json()) as HistoryResponse).history);
+    const nextHistory = ((await historyResponse.json()) as HistoryResponse).history;
+    setHistory(nextHistory);
     setProfileState((await profilesResponse.json()) as ProfilesResponse);
+    setSuppressions(((await suppressionsResponse.json()) as SuppressionsResponse).suppressions);
+    setCompareTo((current) => current ?? nextHistory[0]?.scanId ?? null);
+    setCompareFrom((current) => current ?? nextHistory[1]?.scanId ?? nextHistory[0]?.scanId ?? null);
   }
 
   async function runScan() {
@@ -166,11 +198,75 @@ export function Dashboard() {
     }
   }
 
+  async function createSuppressionForFinding(finding: Finding, scope: "rule" | "fingerprint") {
+    const reason = window.prompt("Optional suppression reason", "Accepted local exception") ?? undefined;
+    startTransition(async () => {
+      setError(null);
+      try {
+        const response = await fetch("/api/suppressions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scope,
+            matchValue: scope === "rule" ? finding.ruleId : finding.fingerprint,
+            reason
+          })
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        await loadAll();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Suppression update failed.");
+      }
+    });
+  }
+
+  async function removeSuppressionById(suppressionId: string) {
+    startTransition(async () => {
+      setError(null);
+      try {
+        const response = await fetch(`/api/suppressions?id=${encodeURIComponent(suppressionId)}`, {
+          method: "DELETE"
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        await loadAll();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Suppression removal failed.");
+      }
+    });
+  }
+
   useEffect(() => {
     loadAll().catch((caught) => {
       setError(caught instanceof Error ? caught.message : "Failed to load dashboard.");
     });
   }, []);
+
+  useEffect(() => {
+    if (!compareTo) {
+      setComparison(null);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (compareFrom) {
+      params.set("from", compareFrom);
+    }
+    params.set("to", compareTo);
+
+    fetch(`/api/diff?${params.toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return (await response.json()) as DiffResponse;
+      })
+      .then((data) => setComparison(data.diff))
+      .catch(() => setComparison(null));
+  }, [compareFrom, compareTo]);
 
   const filteredFindings = findings.findings.filter((finding) => {
     if (severityFilter !== "all" && finding.severity !== severityFilter) {
@@ -183,6 +279,9 @@ export function Dashboard() {
       return false;
     }
     if (showNewOnly && finding.introducedInScan !== findings.scanId) {
+      return false;
+    }
+    if (hideSuppressed && finding.suppressed) {
       return false;
     }
     return true;
@@ -200,6 +299,13 @@ export function Dashboard() {
   const highCount = countBySeverity(filteredFindings, "high");
   const mediumCount = countBySeverity(filteredFindings, "medium");
   const activeProfile = profileState.profiles.find((item) => item.id === profileState.activeProfile);
+  const comparisonSections: Array<{ key: string; label: string; ids: string[] }> = comparison
+    ? [
+        { key: "new", label: "New findings", ids: comparison.newFindingIds },
+        { key: "resolved", label: "Resolved findings", ids: comparison.resolvedFindingIds },
+        { key: "changed", label: "Changed findings", ids: comparison.changedFindingIds }
+      ]
+    : [];
 
   return (
     <main className="shell">
@@ -236,9 +342,15 @@ export function Dashboard() {
             </button>
             <a
               className="button button-ghost"
+              href={posture.scanId ? `/api/export?scanId=${posture.scanId}&format=html` : "#"}
+            >
+              Export HTML report
+            </a>
+            <a
+              className="button button-ghost"
               href={posture.scanId ? `/api/export?scanId=${posture.scanId}&format=json` : "#"}
             >
-              Export sanitized report
+              Export JSON
             </a>
             <span className="meta">Profile: {activeProfile?.label ?? "Balanced"}</span>
           </div>
@@ -257,6 +369,24 @@ export function Dashboard() {
               <span className="mini-label">Current delta</span>
               <strong>{posture.delta?.summary.newCount ?? findings.findings.length} new items</strong>
               <span>{deltaSummary(findings.delta)}</span>
+            </div>
+            <div className="highlight-card">
+              <span className="mini-label">Support tier</span>
+              <strong>{posture.environment?.supportTier ?? "unknown"}</strong>
+              <span>
+                {posture.environment
+                  ? `${posture.environment.distroFamily} via ${posture.environment.packageManager}`
+                  : "Run a scan to determine distro support coverage."}
+              </span>
+            </div>
+            <div className="highlight-card">
+              <span className="mini-label">Advisory bundle</span>
+              <strong>{posture.advisoryBundle?.coverage ?? "missing"}</strong>
+              <span>
+                {posture.advisoryBundle
+                  ? posture.advisoryBundle.issues[0] ?? `Bundle ${posture.advisoryBundle.bundleId}`
+                  : "No advisory bundle loaded yet."}
+              </span>
             </div>
           </div>
           {error ? <div className="error">{error}</div> : null}
@@ -393,11 +523,23 @@ export function Dashboard() {
                 <span>New since last scan</span>
               </div>
             </label>
+            <label className="toggle-card">
+              <input
+                type="checkbox"
+                checked={hideSuppressed}
+                onChange={(event) => setHideSuppressed(event.target.checked)}
+              />
+              <div>
+                <span className="control-label">Suppressed</span>
+                <span>Hide suppressed findings</span>
+              </div>
+            </label>
           </div>
 
           <div className="queue-summary">
             <span>{filteredFindings.length} visible findings</span>
             <span>{visibleGroups.length} grouped issues</span>
+            <span>{suppressions.length} active suppressions</span>
             <span>{showNewOnly ? "Showing only newly introduced items" : "Showing all matching findings"}</span>
           </div>
 
@@ -444,6 +586,8 @@ export function Dashboard() {
                             <div className="badges">
                               <span className={`badge severity-${finding.severity}`}>{finding.severity}</span>
                               <span className={`badge confidence-${finding.confidence}`}>{finding.confidence}</span>
+                              <span className="badge">{finding.subcategory}</span>
+                              {finding.suppressed ? <span className="badge badge-muted">suppressed</span> : null}
                             </div>
                           </div>
 
@@ -479,6 +623,29 @@ export function Dashboard() {
                             </div>
                           </details>
 
+                          <details className="details-block">
+                            <summary>Analysis metadata</summary>
+                            <div className="details-grid">
+                              <div className="evidence-item">
+                                <strong>Fingerprint</strong>
+                                <div className="meta">{finding.fingerprint}</div>
+                              </div>
+                              <div className="evidence-item">
+                                <strong>Rule</strong>
+                                <div>{finding.ruleId}</div>
+                                <div className="meta">{finding.certaintyReason}</div>
+                              </div>
+                              <div className="evidence-item">
+                                <strong>Remediation preconditions</strong>
+                                <div>
+                                  {finding.remediationPreconditions.length > 0
+                                    ? finding.remediationPreconditions.join(", ")
+                                    : "No explicit preconditions recorded."}
+                                </div>
+                              </div>
+                            </div>
+                          </details>
+
                           {finding.remediation.length > 0 ? (
                             <details className="details-block" open>
                               <summary>Fix commands</summary>
@@ -500,6 +667,28 @@ export function Dashboard() {
                                 ))}
                               </div>
                             </details>
+                          ) : null}
+
+                          {finding.suppressionEligible ? (
+                            <div className="suppression-row">
+                              <button
+                                type="button"
+                                className="copy-button"
+                                onClick={() => createSuppressionForFinding(finding, "fingerprint")}
+                                disabled={isPending || Boolean(finding.suppressed)}
+                              >
+                                Suppress this finding
+                              </button>
+                              <button
+                                type="button"
+                                className="copy-button"
+                                onClick={() => createSuppressionForFinding(finding, "rule")}
+                                disabled={isPending}
+                              >
+                                Suppress this rule
+                              </button>
+                              {finding.suppression ? <span className="meta">Reason: {finding.suppression.reason ?? "none"}</span> : null}
+                            </div>
                           ) : null}
                         </article>
                       );
@@ -539,6 +728,55 @@ export function Dashboard() {
 
           <div className="panel">
             <div className="panel-kicker">Method</div>
+            <h2>Compare scans</h2>
+            <div className="compare-controls">
+              <label className="control">
+                <span className="control-label">From</span>
+                <select value={compareFrom ?? ""} onChange={(event) => setCompareFrom(event.target.value || null)}>
+                  {history.map((entry) => (
+                    <option key={`from-${entry.scanId}`} value={entry.scanId}>
+                      {new Date(entry.collectedAt).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="control">
+                <span className="control-label">To</span>
+                <select value={compareTo ?? ""} onChange={(event) => setCompareTo(event.target.value || null)}>
+                  {history.map((entry) => (
+                    <option key={`to-${entry.scanId}`} value={entry.scanId}>
+                      {new Date(entry.collectedAt).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="priority-list">
+              <div className="priority-item">New: {comparison?.summary.newCount ?? 0}</div>
+              <div className="priority-item">Resolved: {comparison?.summary.resolvedCount ?? 0}</div>
+              <div className="priority-item">Changed: {comparison?.summary.changedCount ?? 0}</div>
+              <div className="priority-item">Suppressed: {comparison?.summary.suppressedCount ?? 0}</div>
+            </div>
+            {comparisonSections.map((section) => (
+              <details className="details-block" key={section.key}>
+                <summary>{section.label}</summary>
+                <div className="surface-list">
+                  {section.ids.length > 0 ? (
+                    section.ids.map((id) => (
+                      <span className="surface-chip" key={`${section.key}-${id}`}>
+                        {id}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="meta">None</span>
+                  )}
+                </div>
+              </details>
+            ))}
+          </div>
+
+          <div className="panel">
+            <div className="panel-kicker">Method</div>
             <h2>Trust boundary</h2>
             <div className="trust-stack">
               <div className="trust-line">
@@ -553,6 +791,48 @@ export function Dashboard() {
                 <strong>Unverifiable</strong>
                 <span>Host libvirt, hypervisor launch policy, storage handling, and final escape resistance.</span>
               </div>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel-kicker">Collection</div>
+            <h2>Coverage and caveats</h2>
+            <div className="priority-list">
+              {(posture.environment?.collectionWarnings.length
+                ? posture.environment.collectionWarnings
+                : ["No collection warnings for the latest scan."]).map((item) => (
+                <div className="priority-item" key={item}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel-kicker">Suppressions</div>
+            <h2>Active local waivers</h2>
+            <div className="priority-list">
+              {suppressions.length === 0 ? (
+                <div className="priority-item">No active suppressions.</div>
+              ) : (
+                suppressions.map((suppression) => (
+                  <div className="priority-item suppression-item" key={suppression.id}>
+                    <div>
+                      <strong>{suppression.scope}</strong>
+                      <div className="meta">{suppression.matchValue}</div>
+                      <div className="meta">{suppression.reason ?? "No reason recorded."}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="copy-button"
+                      onClick={() => removeSuppressionById(suppression.id)}
+                      disabled={isPending}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

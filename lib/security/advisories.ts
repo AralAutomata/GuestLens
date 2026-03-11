@@ -15,9 +15,11 @@ interface AdvisoryRecord {
 interface AdvisoryBundle {
   metadata: {
     id: string;
+    generatorVersion?: string;
     generatedAt: string;
     expiresAt?: string;
     source: string;
+    supportScope?: string[];
     trust?: {
       keyId?: string;
       algorithm?: "ed25519";
@@ -34,9 +36,11 @@ function canonicalizeBundle(bundle: AdvisoryBundle): string {
     {
       metadata: {
         id: bundle.metadata.id,
+        generatorVersion: bundle.metadata.generatorVersion,
         generatedAt: bundle.metadata.generatedAt,
         expiresAt: bundle.metadata.expiresAt,
         source: bundle.metadata.source,
+        supportScope: bundle.metadata.supportScope,
         trust: {
           keyId: bundle.metadata.trust?.keyId,
           algorithm: bundle.metadata.trust?.algorithm
@@ -49,8 +53,27 @@ function canonicalizeBundle(bundle: AdvisoryBundle): string {
   );
 }
 
+function validateBundle(bundle: AdvisoryBundle): string[] {
+  const issues: string[] = [];
+
+  if (!bundle.metadata?.id) {
+    issues.push("Bundle metadata is missing an id.");
+  }
+  if (!bundle.metadata?.generatedAt || Number.isNaN(Date.parse(bundle.metadata.generatedAt))) {
+    issues.push("Bundle generatedAt is missing or invalid.");
+  }
+  if (bundle.metadata?.expiresAt && Number.isNaN(Date.parse(bundle.metadata.expiresAt))) {
+    issues.push("Bundle expiresAt is invalid.");
+  }
+  if (!Array.isArray(bundle.packages)) {
+    issues.push("Bundle packages payload is invalid.");
+  }
+
+  return issues;
+}
+
 function loadBundle(): { bundle: AdvisoryBundle; path: string } | null {
-  const imported = getImportedAdvisoryPath();
+  const imported = getImportedAdvisoryPath(false);
   const bundled = getBundledAdvisoryPath();
   const target = existsSync(imported) ? imported : bundled;
   if (!existsSync(target)) {
@@ -67,6 +90,7 @@ export function getAdvisoryBundleStatus(): AdvisoryBundleStatus | null {
     return null;
   }
 
+  const issues = validateBundle(loaded.bundle);
   const payload = canonicalizeBundle(loaded.bundle);
   const sha256 = createHash("sha256").update(payload).digest("hex");
   const expiresAt = loaded.bundle.metadata.expiresAt;
@@ -84,14 +108,27 @@ export function getAdvisoryBundleStatus(): AdvisoryBundleStatus | null {
     );
   }
 
+  const supportScope = loaded.bundle.metadata.supportScope ?? [];
+  const coverage = supportScope.length === 0 ? "limited" : supportScope.some((scope) => /debian|ubuntu/i.test(scope)) ? "supported" : "unsupported";
+
   return {
     bundleId: loaded.bundle.metadata.id,
+    generatorVersion: loaded.bundle.metadata.generatorVersion,
     generatedAt: loaded.bundle.metadata.generatedAt,
     expiresAt,
     verified,
+    valid: issues.length === 0,
     stale,
     source: loaded.bundle.metadata.source,
     sha256
+    ,
+    supportScope,
+    coverage,
+    issues: issues.concat(
+      loaded.bundle.metadata.trust?.signature && !verified ? ["Bundle signature could not be verified with a trusted key."] : [],
+      stale ? ["Bundle is stale for security decision-making."] : [],
+      coverage === "unsupported" ? ["Bundle does not declare Debian/Ubuntu coverage."] : []
+    )
   };
 }
 
@@ -125,8 +162,9 @@ export function matchVulnerabilities(packages: PackageRecord[]): VulnerabilityMa
 export function importAdvisoryBundle(bundlePath: string): AdvisoryBundleStatus {
   const raw = readFileSync(bundlePath, "utf8");
   const bundle = JSON.parse(raw) as AdvisoryBundle;
-  if (!bundle.metadata?.id || !bundle.metadata?.generatedAt || !Array.isArray(bundle.packages)) {
-    throw new Error("Invalid advisory bundle format.");
+  const issues = validateBundle(bundle);
+  if (issues.length > 0) {
+    throw new Error(`Invalid advisory bundle format. ${issues[0]}`);
   }
 
   copyFileSync(bundlePath, getImportedAdvisoryPath());
@@ -139,4 +177,3 @@ export function importAdvisoryBundle(bundlePath: string): AdvisoryBundleStatus {
 
   return status;
 }
-

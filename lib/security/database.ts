@@ -3,7 +3,17 @@ import { DatabaseSync } from "node:sqlite";
 
 import { getDatabasePath } from "@/lib/security/state";
 import { DEFAULT_POLICY_PROFILE } from "@/lib/security/profiles";
-import type { EvidenceRecord, Finding, FindingGroup, PolicyProfile, PostureSummary, ScanDelta, ScanSnapshot, StoredScan } from "@/lib/types";
+import type {
+  EvidenceRecord,
+  Finding,
+  FindingGroup,
+  PolicyProfile,
+  PostureSummary,
+  ScanDelta,
+  ScanSnapshot,
+  StoredScan,
+  SuppressionRecord
+} from "@/lib/types";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -48,6 +58,15 @@ function openDatabase(): DatabaseSync {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS suppressions (
+        suppression_id TEXT PRIMARY KEY,
+        scope TEXT NOT NULL,
+        match_value TEXT NOT NULL,
+        reason TEXT,
+        author TEXT,
+        created_at TEXT NOT NULL,
+        expires_at TEXT
       );
     `);
     if (existsSync(dbPath)) {
@@ -230,4 +249,57 @@ export function setActiveProfile(profile: PolicyProfile): void {
     VALUES ('active-profile', ?)
     ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
   `).run(JSON.stringify(profile));
+}
+
+export function listSuppressions(): SuppressionRecord[] {
+  const db = openDatabase();
+  const rows = db
+    .prepare(`
+      SELECT suppression_id, scope, match_value, reason, author, created_at, expires_at
+      FROM suppressions
+      ORDER BY created_at DESC
+    `)
+    .all() as Array<{
+      suppression_id: string;
+      scope: SuppressionRecord["scope"];
+      match_value: string;
+      reason: string | null;
+      author: string | null;
+      created_at: string;
+      expires_at: string | null;
+    }>;
+
+  const now = Date.now();
+  return rows
+    .filter((row) => !row.expires_at || Date.parse(row.expires_at) > now)
+    .map((row) => ({
+      id: row.suppression_id,
+      scope: row.scope,
+      matchValue: row.match_value,
+      reason: row.reason ?? undefined,
+      author: row.author ?? undefined,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at
+    }));
+}
+
+export function saveSuppression(suppression: SuppressionRecord): void {
+  const db = openDatabase();
+  db.prepare(`
+    INSERT INTO suppressions (suppression_id, scope, match_value, reason, author, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    suppression.id,
+    suppression.scope,
+    suppression.matchValue,
+    suppression.reason ?? null,
+    suppression.author ?? null,
+    suppression.createdAt,
+    suppression.expiresAt ?? null
+  );
+}
+
+export function deleteSuppression(suppressionId: string): void {
+  const db = openDatabase();
+  db.prepare(`DELETE FROM suppressions WHERE suppression_id = ?`).run(suppressionId);
 }

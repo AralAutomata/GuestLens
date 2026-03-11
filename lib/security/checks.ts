@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { buildRemediationAction } from "@/lib/security/remediation";
 import type {
   AffectedBoundary,
@@ -90,11 +92,43 @@ function riskFactor(
 function createFinding(
   snapshot: ScanSnapshot,
   profile: PolicyProfile,
-  input: Omit<Finding, "createdAt" | "profile">
+  input: Omit<
+    Finding,
+    | "createdAt"
+    | "profile"
+    | "fingerprint"
+    | "subcategory"
+    | "remediationPreconditions"
+    | "suppressionEligible"
+    | "suppressed"
+    | "suppression"
+  > & {
+    subcategory?: string;
+    remediationPreconditions?: string[];
+    suppressionEligible?: boolean;
+  }
 ): Finding {
+  const fingerprintPayload = JSON.stringify({
+    ruleId: input.ruleId,
+    boundary: input.boundary,
+    impactedSurfaces: [...input.impactedSurfaces].sort(),
+    evidence: input.evidence.map((item) => ({
+      label: item.label,
+      value: item.value,
+      source: item.source,
+      pathOrCommand: item.pathOrCommand
+    }))
+  });
+
   return {
     ...input,
+    subcategory: input.subcategory ?? input.groupKey,
+    fingerprint: createHash("sha256").update(fingerprintPayload).digest("hex"),
     profile,
+    remediationPreconditions: input.remediationPreconditions ?? [],
+    suppressionEligible: input.suppressionEligible ?? input.boundary !== "host-unverifiable",
+    suppressed: false,
+    suppression: null,
     createdAt: new Date().toISOString()
   };
 }

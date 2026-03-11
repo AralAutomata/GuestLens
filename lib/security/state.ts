@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const APP_DIR = "insidejobvm";
+const APP_DIR = "hostguard-linux";
 
 function ensurePrivateDir(dirPath: string): string {
   if (!existsSync(dirPath)) {
@@ -12,15 +12,19 @@ function ensurePrivateDir(dirPath: string): string {
   return dirPath;
 }
 
-export function getStateDir(): string {
+function resolveStateDirPath(): string {
   const configured = process.env.HOSTGUARD_STATE_DIR;
   if (configured) {
-    return ensurePrivateDir(configured);
+    return configured;
   }
 
   const xdg = process.env.XDG_STATE_HOME;
   const base = xdg ? xdg : path.join(os.homedir(), ".local", "state");
-  return ensurePrivateDir(path.join(base, APP_DIR));
+  return path.join(base, APP_DIR);
+}
+
+export function getStateDir(): string {
+  return ensurePrivateDir(resolveStateDirPath());
 }
 
 export function getRuntimeDir(): string {
@@ -38,15 +42,15 @@ export function getRuntimeDir(): string {
 }
 
 export function getDatabasePath(): string {
-  return path.join(getStateDir(), "insidejobvm.db");
+  return path.join(getStateDir(), "hostguard-linux.db");
 }
 
 export function getCollectorSocketPath(): string {
   return path.join(getRuntimeDir(), "collector.sock");
 }
 
-export function getImportedAdvisoryPath(): string {
-  return path.join(getStateDir(), "advisories.bundle.json");
+export function getImportedAdvisoryPath(create = true): string {
+  return path.join(create ? getStateDir() : resolveStateDirPath(), "advisories.bundle.json");
 }
 
 export function getBundledAdvisoryPath(): string {

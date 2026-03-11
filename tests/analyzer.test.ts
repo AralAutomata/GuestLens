@@ -6,6 +6,7 @@ import type { ScanSnapshot } from "../lib/types";
 function baseSnapshot(): ScanSnapshot {
   return {
     id: "scan-test",
+    schemaVersion: "2026.03",
     collectedAt: "2026-03-10T12:00:00.000Z",
     collectorVersion: "0.2.0",
     system: {
@@ -15,6 +16,16 @@ function baseSnapshot(): ScanSnapshot {
       kernelCommandLine: "quiet splash",
       secureBootState: "enabled",
       seccompAvailable: true
+    },
+    environment: {
+      distroFamily: "debian",
+      supportTier: "first-class",
+      initSystem: "systemd",
+      packageManager: "dpkg",
+      virtualization: "qemu-kvm",
+      advisoryCoverage: "supported",
+      collectionWarnings: [],
+      capabilities: []
     },
     packages: [],
     services: [],
@@ -74,10 +85,12 @@ function baseSnapshot(): ScanSnapshot {
       },
       ssh: {
         installed: false,
+        configFiles: [],
         directives: []
       },
       sudoers: {
-        nopasswdEntries: []
+        nopasswdEntries: [],
+        parsedFiles: []
       }
     },
     virtualization: {
@@ -96,12 +109,17 @@ function baseSnapshot(): ScanSnapshot {
     },
     advisoryBundle: {
       bundleId: "sample",
+      generatorVersion: "fixture",
       generatedAt: "2026-03-10T00:00:00.000Z",
       expiresAt: "2026-04-10T00:00:00.000Z",
       verified: true,
+      valid: true,
       stale: false,
       source: "test",
-      sha256: "abc123"
+      sha256: "abc123",
+      supportScope: ["debian-12", "ubuntu-24.04"],
+      coverage: "supported",
+      issues: []
     },
     vulnerabilities: []
   };
@@ -155,6 +173,7 @@ describe("analyzeSnapshot", () => {
     const snapshot = baseSnapshot();
     snapshot.security.ssh = {
       installed: true,
+      configFiles: ["/etc/ssh/sshd_config"],
       permitRootLogin: "yes",
       passwordAuthentication: "yes",
       x11Forwarding: "yes",

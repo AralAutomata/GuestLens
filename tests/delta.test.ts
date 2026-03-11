@@ -8,6 +8,8 @@ function finding(id: string, severity: Finding["severity"], confidence: Finding[
     id,
     ruleId: id,
     groupKey: "test",
+    subcategory: "test",
+    fingerprint: `fp-${id}`,
     title: id,
     summary: id,
     severity,
@@ -22,8 +24,12 @@ function finding(id: string, severity: Finding["severity"], confidence: Finding[
     operatorImpact: "test",
     falsePositiveGuidance: "test",
     remediation: [],
+    remediationPreconditions: [],
     riskFactors: [],
     relatedFindingIds: [],
+    suppressionEligible: true,
+    suppressed: false,
+    suppression: null,
     safeForAutomationLater: false,
     createdAt: "2026-03-10T00:00:00.000Z",
     introducedInScan: "scan-a"
@@ -36,8 +42,9 @@ function scan(scanId: string, findings: Finding[]): StoredScan {
     profile: "balanced",
     snapshot: {
       id: scanId,
+      schemaVersion: "2026.03",
       collectedAt: "2026-03-10T00:00:00.000Z",
-      collectorVersion: "0.2.0",
+      collectorVersion: "0.3.0",
       system: {
         distro: "test",
         version: "1",
@@ -45,6 +52,16 @@ function scan(scanId: string, findings: Finding[]): StoredScan {
         kernelCommandLine: "",
         secureBootState: "enabled",
         seccompAvailable: true
+      },
+      environment: {
+        distroFamily: "debian",
+        supportTier: "first-class",
+        initSystem: "systemd",
+        packageManager: "dpkg",
+        virtualization: "qemu-kvm",
+        advisoryCoverage: "supported",
+        collectionWarnings: [],
+        capabilities: []
       },
       packages: [],
       services: [],
@@ -87,10 +104,12 @@ function scan(scanId: string, findings: Finding[]): StoredScan {
         },
         ssh: {
           installed: false,
+          configFiles: [],
           directives: []
         },
         sudoers: {
-          nopasswdEntries: []
+          nopasswdEntries: [],
+          parsedFiles: []
         }
       },
       virtualization: {
@@ -135,5 +154,28 @@ describe("buildScanDelta", () => {
     expect(delta.resolvedFindingIds).toEqual(["two"]);
     expect(delta.changedFindingIds).toContain("one");
     expect(delta.severityUpgrades).toContain("one");
+    expect(delta.summary.suppressedCount).toBe(0);
+  });
+
+  test("tracks suppressed findings separately from change counts", () => {
+    const previous = scan("scan-a", [finding("one", "medium", "authoritative")]);
+    const suppressedFinding = {
+      ...finding("one", "medium", "authoritative"),
+      suppressed: true,
+      suppression: {
+        id: "suppression-1",
+        scope: "fingerprint" as const,
+        matchValue: "fp-one",
+        reason: "accepted local exception",
+        createdAt: "2026-03-10T01:00:00.000Z",
+        expiresAt: null
+      }
+    };
+
+    const delta = buildScanDelta(previous, scan("scan-b", [suppressedFinding]));
+
+    expect(delta.changedFindingIds).toEqual([]);
+    expect(delta.suppressedFindingIds).toEqual(["one"]);
+    expect(delta.summary.suppressedCount).toBe(1);
   });
 });

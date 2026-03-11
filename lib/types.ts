@@ -6,6 +6,8 @@ export type AffectedBoundary = "guest" | "guest-host interface" | "host-unverifi
 
 export type PolicyProfile = "balanced" | "high-isolation" | "paranoid-lab";
 
+export const HOSTGUARD_SCHEMA_VERSION = "2026.03";
+
 export type PostureCategory =
   | "guestHardening"
   | "exposureSurface"
@@ -135,12 +137,17 @@ export interface VulnerabilityMatch {
 
 export interface AdvisoryBundleStatus {
   bundleId: string;
+  generatorVersion?: string;
   generatedAt: string;
   expiresAt?: string;
   verified: boolean;
+  valid: boolean;
   stale: boolean;
   source: string;
   sha256: string;
+  supportScope: string[];
+  coverage: "supported" | "limited" | "unsupported";
+  issues: string[];
 }
 
 export interface SshDirective {
@@ -153,6 +160,7 @@ export interface SshDirective {
 
 export interface SshConfigState {
   installed: boolean;
+  configFiles: string[];
   directives: SshDirective[];
   permitRootLogin?: string;
   passwordAuthentication?: string;
@@ -186,6 +194,7 @@ export interface LsmState {
 
 export interface SudoersState {
   nopasswdEntries: string[];
+  parsedFiles: string[];
 }
 
 export interface VirtualizationSurfaceState {
@@ -226,11 +235,34 @@ export interface SystemState {
   seccompAvailable: boolean;
 }
 
+export interface CollectorCapability {
+  id: string;
+  label: string;
+  available: boolean;
+  source: string;
+  collectedFrom: string;
+  detail: string;
+  supportTier: "first-class" | "best-effort";
+}
+
+export interface EnvironmentMetadata {
+  distroFamily: "debian" | "ubuntu" | "rhel" | "arch" | "unknown";
+  supportTier: "first-class" | "best-effort";
+  initSystem: "systemd" | "sysvinit" | "openrc" | "unknown";
+  packageManager: "dpkg" | "rpm" | "pacman" | "unknown";
+  virtualization: "qemu-kvm" | "unknown";
+  advisoryCoverage: "supported" | "limited" | "unsupported";
+  collectionWarnings: string[];
+  capabilities: CollectorCapability[];
+}
+
 export interface ScanSnapshot {
   id: string;
+  schemaVersion: string;
   collectedAt: string;
   collectorVersion: string;
   system: SystemState;
+  environment: EnvironmentMetadata;
   packages: PackageRecord[];
   services: ServiceRecord[];
   mounts: MountRecord[];
@@ -259,6 +291,8 @@ export interface Finding {
   id: string;
   ruleId: string;
   groupKey: string;
+  subcategory: string;
+  fingerprint: string;
   title: string;
   summary: string;
   severity: Severity;
@@ -274,8 +308,12 @@ export interface Finding {
   falsePositiveGuidance: string;
   whyGuestCannotKnow?: string;
   remediation: RemediationAction[];
+  remediationPreconditions: string[];
   riskFactors: RiskFactor[];
   relatedFindingIds: string[];
+  suppressionEligible: boolean;
+  suppressed?: boolean;
+  suppression?: SuppressionRecord | null;
   safeForAutomationLater: boolean;
   createdAt: string;
   introducedInScan?: string;
@@ -323,6 +361,7 @@ export interface ScanDelta {
   newFindingIds: string[];
   resolvedFindingIds: string[];
   changedFindingIds: string[];
+  suppressedFindingIds: string[];
   severityUpgrades: string[];
   confidenceDowngrades: string[];
   unchangedCount: number;
@@ -330,9 +369,20 @@ export interface ScanDelta {
     newCount: number;
     resolvedCount: number;
     changedCount: number;
+    suppressedCount: number;
     severityUpgradeCount: number;
     confidenceDowngradeCount: number;
   };
+}
+
+export interface SuppressionRecord {
+  id: string;
+  scope: "rule" | "fingerprint";
+  matchValue: string;
+  reason?: string;
+  author?: string;
+  createdAt: string;
+  expiresAt?: string | null;
 }
 
 export interface StoredScan {

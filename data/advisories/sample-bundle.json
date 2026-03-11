@@ -1,9 +1,14 @@
 {
   "metadata": {
-    "id": "insidejobvm-sample-2026-03-10",
+    "id": "hostguard-linux-sample-2026-03-10",
+    "generatorVersion": "sample-fixture-1",
     "generatedAt": "2026-03-10T00:00:00.000Z",
     "expiresAt": "2026-04-10T00:00:00.000Z",
     "source": "bundled-sample",
+    "supportScope": [
+      "debian-12",
+      "ubuntu-lts"
+    ],
     "trust": {
       "keyId": "sample-ed25519",
       "algorithm": "ed25519"

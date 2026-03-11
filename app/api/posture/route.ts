@@ -12,6 +12,8 @@ export async function GET() {
     scanId: latest?.scanId ?? null,
     collectedAt: latest?.snapshot.collectedAt ?? null,
     profile: latest?.profile ?? null,
+    environment: latest?.snapshot.environment ?? null,
+    advisoryBundle: latest?.snapshot.advisoryBundle ?? null,
     delta: latest?.delta ?? null
   });
 }

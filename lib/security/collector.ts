@@ -4,8 +4,11 @@ import os from "node:os";
 import path from "node:path";
 
 import { getAdvisoryBundleStatus, matchVulnerabilities } from "@/lib/security/advisories";
+import { HOSTGUARD_SCHEMA_VERSION } from "@/lib/types";
 import type {
+  CollectorCapability,
   DnsServerRecord,
+  EnvironmentMetadata,
   FilePermissionIssue,
   FirewallState,
   ListeningSocket,
@@ -18,7 +21,7 @@ import type {
   SshDirective
 } from "@/lib/types";
 
-const COLLECTOR_VERSION = "0.2.0";
+const COLLECTOR_VERSION = "0.3.0";
 
 function safeRead(filePath: string): string | null {
   try {
@@ -188,6 +191,50 @@ function parseOsRelease(): { distro: string; version: string } {
     distro: values.PRETTY_NAME ?? values.NAME ?? "Unknown Linux",
     version: values.VERSION_ID ?? "unknown"
   };
+}
+
+function detectDistroFamily(distro: string): EnvironmentMetadata["distroFamily"] {
+  const normalized = distro.toLowerCase();
+  if (normalized.includes("ubuntu")) {
+    return "ubuntu";
+  }
+  if (normalized.includes("debian")) {
+    return "debian";
+  }
+  if (normalized.includes("rhel") || normalized.includes("rocky") || normalized.includes("alma") || normalized.includes("fedora")) {
+    return "rhel";
+  }
+  if (normalized.includes("arch")) {
+    return "arch";
+  }
+  return "unknown";
+}
+
+function detectPackageManager(): EnvironmentMetadata["packageManager"] {
+  if (commandExists("dpkg-query")) {
+    return "dpkg";
+  }
+  if (commandExists("rpm")) {
+    return "rpm";
+  }
+  if (commandExists("pacman")) {
+    return "pacman";
+  }
+  return "unknown";
+}
+
+function detectInitSystem(): EnvironmentMetadata["initSystem"] {
+  const initComm = safeRead("/proc/1/comm")?.trim().toLowerCase();
+  if (initComm?.includes("systemd")) {
+    return "systemd";
+  }
+  if (initComm?.includes("init")) {
+    return "sysvinit";
+  }
+  if (initComm?.includes("openrc")) {
+    return "openrc";
+  }
+  return commandExists("systemctl") ? "systemd" : "unknown";
 }
 
 function detectSecureBoot(): "enabled" | "disabled" | "not-exposed" | "unknown" {
@@ -591,6 +638,7 @@ function collectSsh(observedAt: string): SshConfigState {
     .concat(
       safeList(path.join(base, "sshd_config.d"))
         .filter((entry) => entry.endsWith(".conf"))
+        .sort((left, right) => left.localeCompare(right))
         .map((entry) => path.join(base, "sshd_config.d", entry))
     )
     .filter((filePath) => existsSync(filePath));
@@ -598,6 +646,7 @@ function collectSsh(observedAt: string): SshConfigState {
   if (configFiles.length === 0) {
     return {
       installed: false,
+      configFiles: [],
       directives: []
     };
   }
@@ -605,6 +654,7 @@ function collectSsh(observedAt: string): SshConfigState {
   const { values, directives } = parseConfigFiles(configFiles, observedAt);
   return {
     installed: true,
+    configFiles,
     directives,
     permitRootLogin: values.permitrootlogin,
     passwordAuthentication: values.passwordauthentication,
@@ -615,15 +665,19 @@ function collectSsh(observedAt: string): SshConfigState {
 
 function collectSudoers() {
   const candidates = ["/etc/sudoers"].concat(
-    safeList("/etc/sudoers.d").map((entry) => path.join("/etc/sudoers.d", entry))
+    safeList("/etc/sudoers.d")
+      .sort((left, right) => left.localeCompare(right))
+      .map((entry) => path.join("/etc/sudoers.d", entry))
   );
   const nopasswdEntries: string[] = [];
+  const parsedFiles: string[] = [];
 
   for (const filePath of candidates) {
     const content = safeRead(filePath);
     if (!content) {
       continue;
     }
+    parsedFiles.push(filePath);
     for (const line of content.split("\n")) {
       if (line.includes("NOPASSWD")) {
         nopasswdEntries.push(`${filePath}: ${line.trim()}`);
@@ -631,7 +685,7 @@ function collectSudoers() {
     }
   }
 
-  return { nopasswdEntries };
+  return { nopasswdEntries, parsedFiles };
 }
 
 function collectFilePermissionIssues(observedAt: string): FilePermissionIssue[] {
@@ -839,6 +893,100 @@ function collectNetwork(observedAt: string) {
   };
 }
 
+function capability(
+  id: string,
+  label: string,
+  available: boolean,
+  source: string,
+  collectedFrom: string,
+  detail: string,
+  supportTier: CollectorCapability["supportTier"] = "first-class"
+): CollectorCapability {
+  return { id, label, available, source, collectedFrom, detail, supportTier };
+}
+
+function collectEnvironmentMetadata(
+  distro: string,
+  firewall: FirewallState,
+  advisoryCoverage: EnvironmentMetadata["advisoryCoverage"],
+  advisoryIssues: string[]
+): EnvironmentMetadata {
+  const distroFamily = detectDistroFamily(distro);
+  const packageManager = detectPackageManager();
+  const initSystem = detectInitSystem();
+
+  const collectionWarnings = [
+    ...advisoryIssues,
+    ...(firewall.inspectionAvailable === false
+      ? [firewall.inspectionError ?? "Firewall inspection was not fully available for this scan."]
+      : [])
+  ];
+
+  return {
+    distroFamily,
+    supportTier: distroFamily === "debian" || distroFamily === "ubuntu" ? "first-class" : "best-effort",
+    initSystem,
+    packageManager,
+    virtualization: existsSync("/sys/class/dmi/id/product_name") || existsSync("/dev/virtio-ports") ? "qemu-kvm" : "unknown",
+    advisoryCoverage,
+    collectionWarnings,
+    capabilities: [
+      capability(
+        "packages.dpkg",
+        "Debian package inventory",
+        packageManager === "dpkg",
+        "dpkg-query",
+        "dpkg-query -W",
+        packageManager === "dpkg"
+          ? "Structured package inventory is available for Debian/Ubuntu guests."
+          : "Debian package inventory is not available on this guest.",
+        packageManager === "dpkg" ? "first-class" : "best-effort"
+      ),
+      capability(
+        "ssh.config",
+        "OpenSSH server configuration",
+        existsSync("/etc/ssh/sshd_config"),
+        "/etc/ssh/sshd_config",
+        "ssh-config",
+        existsSync("/etc/ssh/sshd_config")
+          ? "Primary SSH configuration and drop-ins are readable."
+          : "No readable sshd configuration was detected."
+      ),
+      capability(
+        "sudoers",
+        "sudoers policy inspection",
+        existsSync("/etc/sudoers"),
+        "/etc/sudoers",
+        "filesystem",
+        existsSync("/etc/sudoers")
+          ? "sudoers files are readable for NOPASSWD analysis."
+          : "sudoers policy could not be read from standard paths."
+      ),
+      capability(
+        "firewall.ruleset",
+        "Firewall ruleset inspection",
+        firewall.inspectionAvailable,
+        firewall.source,
+        firewall.collectedFrom,
+        firewall.inspectionAvailable
+          ? "Firewall ruleset was inspected directly."
+          : firewall.inspectionError ?? "Firewall visibility is limited.",
+        firewall.backend === "nftables" ? "first-class" : "best-effort"
+      ),
+      capability(
+        "network.listeners",
+        "Listening socket inventory",
+        commandExists("ss"),
+        "ss",
+        "ss -H -lntup",
+        commandExists("ss")
+          ? "Socket exposure is derived from ss output."
+          : "The ss command is not available for listening socket inventory."
+      )
+    ]
+  };
+}
+
 export function collectSnapshot(): ScanSnapshot {
   const collectedAt = new Date().toISOString();
   const osRelease = parseOsRelease();
@@ -850,9 +998,17 @@ export function collectSnapshot(): ScanSnapshot {
     ...match,
     installedVersion: packages.find((pkg) => pkg.name === match.packageName)?.version
   }));
+  const firewall = collectFirewall(services);
+  const environment = collectEnvironmentMetadata(
+    osRelease.distro,
+    firewall,
+    advisoryBundle?.coverage ?? "unsupported",
+    advisoryBundle?.issues ?? []
+  );
 
   return {
     id: crypto.randomUUID(),
+    schemaVersion: HOSTGUARD_SCHEMA_VERSION,
     collectedAt,
     collectorVersion: COLLECTOR_VERSION,
     system: {
@@ -863,6 +1019,7 @@ export function collectSnapshot(): ScanSnapshot {
       secureBootState: detectSecureBoot(),
       seccompAvailable: (safeRead("/proc/self/status") ?? "").includes("Seccomp:")
     },
+    environment,
     packages,
     services,
     mounts,
@@ -870,7 +1027,7 @@ export function collectSnapshot(): ScanSnapshot {
     filePermissionIssues: collectFilePermissionIssues(collectedAt),
     security: {
       lsm: collectLsm(),
-      firewall: collectFirewall(services),
+      firewall,
       ssh: collectSsh(collectedAt),
       sudoers: collectSudoers()
     },
