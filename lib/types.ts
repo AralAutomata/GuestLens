@@ -197,6 +197,13 @@ export interface SudoersState {
   parsedFiles: string[];
 }
 
+export interface CapabilitiesState {
+  effective: string[];
+  permitted: string[];
+  bounding: string[];
+  dangerousPresent: string[];
+}
+
 export interface VirtualizationSurfaceState {
   qemuGuestAgent: boolean;
   guestAgentChannels: string[];
@@ -277,6 +284,7 @@ export interface ScanSnapshot {
     firewall: FirewallState;
     ssh: SshConfigState;
     sudoers: SudoersState;
+    capabilities: CapabilitiesState;
   };
   virtualization: VirtualizationSurfaceState;
   advisoryBundle: AdvisoryBundleStatus | null;

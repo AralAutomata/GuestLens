@@ -165,6 +165,46 @@ describe("checks — all 22 rules", () => {
     });
   });
 
+  // 7b. guest.capabilities.dangerous-present
+  describe("guest.capabilities.dangerous-present", () => {
+    test("fires when dangerous capabilities are present", () => {
+      const s = baseSnapshot();
+      s.security.capabilities.dangerousPresent = ["CAP_NET_RAW", "CAP_SYS_ADMIN"];
+      const f = findByRule(s, "guest.capabilities.dangerous-present");
+      expect(f).toBeDefined();
+      expect(f!.confidence).toBe("authoritative");
+      expect(f!.boundary).toBe("guest");
+    });
+
+    test("does not fire when no dangerous capabilities", () => {
+      expect(findByRule(baseSnapshot(), "guest.capabilities.dangerous-present")).toBeUndefined();
+    });
+
+    test("severity is high when CAP_SYS_ADMIN is present", () => {
+      const s = baseSnapshot();
+      s.security.capabilities.dangerousPresent = ["CAP_SYS_ADMIN"];
+      const f = findByRule(s, "guest.capabilities.dangerous-present");
+      expect(f).toBeDefined();
+      expect(f!.severity).toBe("high");
+    });
+
+    test("severity is medium when CAP_SYS_ADMIN is not present", () => {
+      const s = baseSnapshot();
+      s.security.capabilities.dangerousPresent = ["CAP_NET_RAW"];
+      const f = findByRule(s, "guest.capabilities.dangerous-present");
+      expect(f).toBeDefined();
+      expect(f!.severity).toBe("medium");
+    });
+
+    test("high-isolation bumps severity", () => {
+      const s = baseSnapshot();
+      s.security.capabilities.dangerousPresent = ["CAP_NET_RAW"];
+      const f = runChecks(s, "high-isolation").find((f) => f.ruleId === "guest.capabilities.dangerous-present");
+      expect(f).toBeDefined();
+      expect(f!.severity).toBe("high");
+    });
+  });
+
   // 8. guesthost.shared-folders.present
   describe("guesthost.shared-folders.present", () => {
     test("fires when shared mounts exist", () => {

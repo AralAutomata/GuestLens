@@ -7,7 +7,10 @@ import {
   detectNestedVirtualization,
   detectKsmActive,
   detectBalloonDriverPresent,
-  detectBalloonActiveAdjusting
+  detectBalloonActiveAdjusting,
+  decodeCapabilityMask,
+  filterDangerousCapabilities,
+  detectCapabilities
 } from "../lib/security/collector";
 import type { RouteRecord } from "../lib/types";
 
@@ -188,5 +191,63 @@ describe("detectBalloonActiveAdjusting", () => {
   test("returns boolean based on /proc/meminfo content", () => {
     const result = detectBalloonActiveAdjusting();
     expect(typeof result).toBe("boolean");
+  });
+});
+
+describe("decodeCapabilityMask", () => {
+  test("decodes empty mask to empty array", () => {
+    expect(decodeCapabilityMask("0000000000000000")).toEqual([]);
+  });
+
+  test("decodes CAP_CHOWN (bit 0)", () => {
+    expect(decodeCapabilityMask("0000000000000001")).toEqual(["CAP_CHOWN"]);
+  });
+
+  test("decodes CAP_CHOWN and CAP_DAC_OVERRIDE (bits 0 and 1)", () => {
+    expect(decodeCapabilityMask("0000000000000003")).toEqual(["CAP_CHOWN", "CAP_DAC_OVERRIDE"]);
+  });
+
+  test("decodes CAP_SYS_ADMIN (bit 21)", () => {
+    expect(decodeCapabilityMask("0x200000")).toEqual(["CAP_SYS_ADMIN"]);
+  });
+
+  test("returns empty array for invalid input", () => {
+    expect(decodeCapabilityMask("invalid")).toEqual([]);
+  });
+});
+
+describe("filterDangerousCapabilities", () => {
+  test("returns empty array when no capabilities", () => {
+    expect(filterDangerousCapabilities([])).toEqual([]);
+  });
+
+  test("filters out non-dangerous capabilities", () => {
+    expect(filterDangerousCapabilities(["CAP_CHOWN", "CAP_NET_BIND_SERVICE"])).toEqual([]);
+  });
+
+  test("keeps dangerous capabilities", () => {
+    expect(filterDangerousCapabilities(["CAP_CHOWN", "CAP_SYS_ADMIN", "CAP_NET_RAW"])).toEqual(["CAP_SYS_ADMIN", "CAP_NET_RAW"]);
+  });
+
+  test("handles mix of dangerous and safe", () => {
+    const result = filterDangerousCapabilities(["CAP_SYS_ADMIN", "CAP_SYS_PTRACE", "CAP_NET_RAW", "CAP_NET_BIND_SERVICE"]);
+    expect(result).toContain("CAP_SYS_ADMIN");
+    expect(result).toContain("CAP_SYS_PTRACE");
+    expect(result).toContain("CAP_NET_RAW");
+    expect(result).not.toContain("CAP_NET_BIND_SERVICE");
+  });
+});
+
+describe("detectCapabilities", () => {
+  test("returns all required fields", () => {
+    const result = detectCapabilities();
+    expect(result).toHaveProperty("effective");
+    expect(result).toHaveProperty("permitted");
+    expect(result).toHaveProperty("bounding");
+    expect(result).toHaveProperty("dangerousPresent");
+    expect(Array.isArray(result.effective)).toBe(true);
+    expect(Array.isArray(result.permitted)).toBe(true);
+    expect(Array.isArray(result.bounding)).toBe(true);
+    expect(Array.isArray(result.dangerousPresent)).toBe(true);
   });
 });

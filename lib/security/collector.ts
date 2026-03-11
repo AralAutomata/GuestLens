@@ -205,6 +205,72 @@ export function detectBalloonActiveAdjusting(): boolean {
   return /BalloonInflate|BalloonDeflate/i.test(meminfo);
 }
 
+const CAPABILITY_NAMES = [
+  "CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_FOWNER", "CAP_FSETID",
+  "CAP_KILL", "CAP_SETGID", "CAP_SETUID", "CAP_SETPCAP", "CAP_LINUX_IMMUTABLE",
+  "CAP_NET_BIND_SERVICE", "CAP_NET_BROADCAST", "CAP_NET_ADMIN", "CAP_NET_RAW",
+  "CAP_IPC_LOCK", "CAP_IPC_OWNER", "CAP_SYS_MODULE", "CAP_SYS_RAWIO", "CAP_SYS_CHROOT",
+  "CAP_SYS_PTRACE", "CAP_SYS_PACCT", "CAP_SYS_ADMIN", "CAP_SYS_BOOT", "CAP_SYS_NICE",
+  "CAP_SYS_RESOURCE", "CAP_SYS_TIME", "CAP_SYS_TTY_CONFIG", "CAP_MKNOD", "CAP_LEASE",
+  "CAP_AUDIT_WRITE", "CAP_AUDIT_CONTROL", "CAP_SETFCAP", "CAP_MAC_OVERRIDE",
+  "CAP_MAC_ADMIN", "CAP_SYSLOG", "CAP_WAKE_ALARM", "CAP_BLOCK_SUSPEND",
+  "CAP_AUDIT_READ", "CAP_PERFMON", "CAP_BPF", "CAP_CHECKPOINT_RESTORE"
+];
+
+const DANGEROUS_CAPABILITIES = new Set([
+  "CAP_SYS_ADMIN", "CAP_SYS_PTRACE", "CAP_SYS_MODULE", "CAP_SYS_RAWIO",
+  "CAP_SYS_BOOT", "CAP_SYS_TIME", "CAP_NET_RAW", "CAP_NET_ADMIN",
+  "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_BPF", "CAP_PERFMON",
+  "CAP_SYS_NICE", "CAP_SYS_RESOURCE", "CAP_SYS_CHROOT"
+]);
+
+export function decodeCapabilityMask(hexMask: string): string[] {
+  try {
+    const num = BigInt(hexMask);
+    const capabilities: string[] = [];
+    for (let i = 0; i < CAPABILITY_NAMES.length; i++) {
+      if ((num & (1n << BigInt(i))) !== 0n) {
+        capabilities.push(CAPABILITY_NAMES[i]);
+      }
+    }
+    return capabilities;
+  } catch {
+    return [];
+  }
+}
+
+export function filterDangerousCapabilities(capabilities: string[]): string[] {
+  return capabilities.filter((cap) => DANGEROUS_CAPABILITIES.has(cap));
+}
+
+export function detectCapabilities(): { effective: string[]; permitted: string[]; bounding: string[]; dangerousPresent: string[] } {
+  const status = safeRead("/proc/self/status");
+  if (!status) {
+    return { effective: [], permitted: [], bounding: [], dangerousPresent: [] };
+  }
+
+  const capEffMatch = status.match(/^CapEff:\s*(.+)$/m);
+  const capPrmMatch = status.match(/^CapPrm:\s*(.+)$/m);
+  const capBndMatch = status.match(/^CapBnd:\s*(.+)$/m);
+
+  const effective = capEffMatch ? decodeCapabilityMask(capEffMatch[1].trim()) : [];
+  const permitted = capPrmMatch ? decodeCapabilityMask(capPrmMatch[1].trim()) : [];
+  const bounding = capBndMatch ? decodeCapabilityMask(capBndMatch[1].trim()) : [];
+
+  const dangerousInEffective = filterDangerousCapabilities(effective);
+  const dangerousInPermitted = filterDangerousCapabilities(permitted);
+  const dangerousInBounding = filterDangerousCapabilities(bounding);
+
+  const allDangerous = [...new Set([...dangerousInEffective, ...dangerousInPermitted, ...dangerousInBounding])];
+
+  return {
+    effective,
+    permitted,
+    bounding,
+    dangerousPresent: allDangerous
+  };
+}
+
 function parseOsRelease(): { distro: string; version: string } {
   const raw = safeRead("/etc/os-release");
   if (!raw) {
@@ -1067,7 +1133,8 @@ export function collectSnapshot(): ScanSnapshot {
       lsm: collectLsm(),
       firewall,
       ssh: collectSsh(collectedAt),
-      sudoers: collectSudoers()
+      sudoers: collectSudoers(),
+      capabilities: detectCapabilities()
     },
     virtualization: collectVirtualization(mounts, services, packages),
     advisoryBundle,

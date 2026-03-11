@@ -88,6 +88,12 @@ export function baseSnapshot(): ScanSnapshot {
       sudoers: {
         nopasswdEntries: [],
         parsedFiles: []
+      },
+      capabilities: {
+        effective: [],
+        permitted: [],
+        bounding: [],
+        dangerousPresent: []
       }
     },
     virtualization: {

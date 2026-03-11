@@ -569,6 +569,72 @@ const checks: CheckDefinition[] = [
   },
   {
     run({ snapshot, profile }) {
+      const dangerousCaps = snapshot.security.capabilities.dangerousPresent;
+      if (dangerousCaps.length === 0) {
+        return [];
+      }
+
+      const hasSysAdmin = dangerousCaps.includes("CAP_SYS_ADMIN");
+      const categories: PostureCategory[] = ["guestHardening", "leakageRisk"];
+      const severity = hasSysAdmin
+        ? profileAdjustedSeverity(profile, "high", "guest", categories)
+        : profileAdjustedSeverity(profile, "medium", "guest", categories);
+
+      return [
+        {
+          finding: createFinding(snapshot, profile, {
+            id: "dangerous-capabilities",
+            ruleId: "guest.capabilities.dangerous-present",
+            groupKey: "process-hardening",
+            title: "Dangerous Linux capabilities are present in the process",
+            summary: `The GuestLens process holds ${dangerousCaps.length} dangerous capability(ies): ${dangerousCaps.join(", ")}.`,
+            severity,
+            confidence: "authoritative",
+            certaintyReason: "The guest directly reads /proc/self/status to decode capability bitmasks.",
+            boundary: "guest",
+            categories: ["guestHardening", "leakageRisk"],
+            impactedSurfaces: ["kernel privileges", "process isolation"],
+            evidence: dangerousCaps.map((cap, index) =>
+              evidence(snapshot, {
+                id: `cap-${index}`,
+                label: cap,
+                kind: "capability",
+                value: cap,
+                source: "/proc/self/status",
+                pathOrCommand: "cat /proc/self/status",
+                interpretation: `${cap} is present in the effective, permitted, or bounding capability set.`,
+                confidenceBasis: "Direct kernel capability mask decoding"
+              })
+            ),
+            rationale: "Dangerous capabilities allow the process to perform privileged operations without full root. CAP_SYS_ADMIN is nearly equivalent to root.",
+            operatorImpact: "A compromised GuestLens process could use these capabilities for privilege escalation or system control.",
+            falsePositiveGuidance: "If GuestLens runs as root or with elevated privileges intentionally, this is expected. Consider running with minimal capabilities in production.",
+            remediation: [
+              {
+                id: "drop-capabilities",
+                title: "Drop dangerous capabilities",
+                description: "Run GuestLens with minimal capabilities using systemd or capsh.",
+                requiresRoot: false,
+                safeForAutomationLater: true,
+                mode: "command",
+                commands: [
+                  "Systemd: Add AmbientCapabilities= and CapabilityBoundingSet= to the service unit",
+                  "capsh --drop=<capability> --chroot=<dir> -- /path/to/guestlens"
+                ]
+              }
+            ],
+            riskFactors: dangerousCaps.map((cap) =>
+              riskFactor(`cap-${cap.toLowerCase()}`, "Kernel privilege", `${cap} is present in the process.`, hasSysAdmin ? "high" : "medium", "guest")
+            ),
+            relatedFindingIds: [],
+            safeForAutomationLater: false
+          })
+        }
+      ];
+    }
+  },
+  {
+    run({ snapshot, profile }) {
       const findings: CheckResult[] = [];
 
       if (snapshot.virtualization.sharedFolderMounts.length > 0) {
