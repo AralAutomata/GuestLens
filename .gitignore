@@ -1,7 +1,42 @@
-node_modules
-.next
-dist
-coverage
-*.log
-insidejobvm.db
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+dist/
+coverage/
 *.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and local overrides
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Runtime and local state
+*.pid
+*.sock
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# Deployment tooling
+.vercel/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
