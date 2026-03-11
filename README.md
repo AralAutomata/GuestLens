@@ -1,132 +1,247 @@
-# HostGuard Linux
+# GuestLens
 
-HostGuard Linux is a local-first, guest-visible security posture analyzer for Linux virtual machines running under QEMU/KVM. It is designed for developers and sysadmins who need precise evidence about what a guest can actually observe from inside the VM, especially in offline or air-gapped environments.
+Analyze your QEMU/KVM Linux systems from the inside. Discover exposed services, guest agents, firewall gaps, and trust boundary violations - all locally, no cloud required.
 
-## Product contract
+## Overview
 
-HostGuard Linux is intentionally strict about trust boundaries:
+GuestLens is a local-first, guest-visible security posture analyzer for Linux virtual machines running under QEMU/KVM. It is designed for developers and sysadmins who need precise evidence about a guest can actually observe from inside the VM, especially in offline or air-gapped environments.
 
-- `Authoritative`: guest-visible state such as services, sockets, packages, mounts, firewall state, SSH configuration, sudoers policy, and local devices.
-- `Inferred`: likely exposure paths derived from guest-visible clues such as shared folders, guest agents, discovery daemons, network reachability, and advisory coverage limits.
-- `Unverifiable`: host-only controls such as libvirt XML, hypervisor launch flags, host firewalling, sVirt labels, storage handling, and escape resistance.
+Unlike traditional vulnerability scanners that run from the host, GuestLens inspects the VM from the inside out - revealing exactly what your virtual machine can see about itself, its exposure surfaces, and potential data leakage paths.
 
-Out of scope in this phase:
+## Why GuestLens?
 
-- host-side certification
-- fleet management
-- cloud services
-- remote auth or RBAC
-- automated remediation execution
+- **Guest-Visible Only**: Reports only what the VM can directly observe about itself
+- **Air-Gapped Ready**: Works completely offline with local advisory bundles
+- **Evidence-Backed**: Every finding includes source commands, file paths, and confidence levels
+- **Repeatable**: Scan history with delta comparisons to track changes over time
+- **Local-Only**: No cloud dependencies, no network required
 
-## Operating model
+## Features
 
-- Local collector service over a Unix domain socket
-- Local Next.js dashboard bound to `127.0.0.1`
-- Source-only distribution from a public GitHub repo
-- Strictly air-gapped advisory workflow via manual bundle import
+### Security Checks
 
-Default paths:
+GuestLens performs comprehensive security analysis across multiple categories:
 
-- Runtime socket: `$XDG_RUNTIME_DIR/hostguard-linux/collector.sock`
-- Runtime fallback: `/tmp/hostguard-linux-<uid>/collector.sock`
-- State dir: `$XDG_STATE_HOME/hostguard-linux`
-- State fallback: `~/.local/state/hostguard-linux`
-- SQLite DB: `hostguard-linux.db`
+| Category | Checks |
+|----------|--------|
+| **Guest Hardening** | SELinux/AppArmor enforcement, firewall rules, SSH hardening, sudoers NOPASSWD |
+| **Exposure Surface** | Public listening sockets, exposed services, firewall visibility |
+| **Guest-Host Interface** | Shared folder mounts (virtiofs/9p), QEMU guest agent, SPICE vdagent, AF_VSOCK |
+| **Discovery & Metadata** | Avahi/mDNS services, multicast listeners, cloud metadata routes |
+| **File Permissions** | World-writable sensitive paths in /etc, /usr/local, /var/lib |
+| **Package Advisories** | Match installed packages against offline vulnerability bundles |
 
-## Support statement
+### Trust Boundary Model
 
-First-class support in this phase:
+GuestLens categorizes findings by certainty:
 
-- Debian 12 guests
-- Ubuntu LTS guests
-- QEMU/KVM environments managed locally
+- **Authoritative**: Direct evidence from guest-visible state (e.g., firewall rules, listening sockets)
+- **Inferred**: Likely exposure based on guest-visible clues (e.g., guest agent present)
+- **Unverifiable**: Host-only controls the guest cannot see (e.g., libvirt XML, IOMMU)
 
-Best-effort support:
+### Policy Profiles
 
-- RPM-based guests
-- Arch-based guests
-- non-systemd layouts
+Choose from three scanning profiles:
 
-## Key capabilities
+- **Balanced**: Default security posture for general workloads
+- **High-Isolation**: Enhanced scrutiny of guest-host integration surfaces
+- **Paranoid Lab**: Maximum hardening for isolated lab environments
 
-- repeatable guest scans with stored history and deltas
-- evidence-backed findings with fingerprints and suppression support
-- local dashboard for filtering, comparison, and operator review
-- standalone HTML report export and versioned JSON export
-- offline advisory bundle validation and coverage reporting
+## Architecture
 
-## Local development
+GuestLens consists of three local subsystems:
 
-Requirements:
+1. **Collector** - Gathers guest-visible state via filesystem inspection and shell commands
+2. **Analyzer** - Converts snapshots into findings, posture scores, and deltas
+3. **Dashboard** - Local Next.js UI for viewing, filtering, and exporting results
 
-- Bun 1.3.x
-- Node.js runtime compatible with Next.js 15
+### Data Flow
 
-Install dependencies:
-
-```bash
-bun install
+```
+Collector reads /proc, /sys, systemctl, ss, iptables, etc.
+         ↓
+Snapshot stored in SQLite with schema version
+         ↓
+Analyzer generates findings with fingerprints
+         ↓
+Dashboard serves findings, history, and exports
 ```
 
-Start collector and dashboard together:
+### Technology Stack
+
+- **Runtime**: Bun 1.3.x
+- **Framework**: Next.js 15 (App Router)
+- **UI**: React 19
+- **Database**: SQLite (better-sqlite3)
+- **Language**: TypeScript
+
+## Installation
+
+### Requirements
+
+- Bun 1.3.x
+- Node.js compatible with Next.js 15
+- QEMU/KVM environment (for best results)
+- Ubuntu 22.04+, Debian 12+ (first-class support)
+
+### Setup
 
 ```bash
+# Install dependencies
+bun install
+
+# Start collector and dashboard
 bun run dev
 ```
 
-Open locally from inside the guest:
+Open `http://127.0.0.1:3000` from inside the guest VM.
 
-```text
-http://127.0.0.1:3000
-```
-
-Production-style startup:
+### Production Build
 
 ```bash
 bun run build
 bun run start
 ```
 
-Collector-only:
+### Collector Only
 
 ```bash
 bun run collector
 ```
 
-## Advisory bundles
+## Usage
 
-HostGuard Linux ships with a bundled sample advisory bundle for offline development. Replace it before relying on package findings.
+### Running a Scan
 
-Import a bundle:
+1. Start GuestLens with `bun run dev`
+2. Open the dashboard at `http://127.0.0.1:3000`
+3. Click "Run guest scan" to perform analysis
+4. Review findings in the Control Room
+
+### Exporting Results
+
+- **HTML Report**: Full formatted report for sharing
+- **JSON Export**: Machine-readable format for automation
+
+### Advisory Bundles
+
+GuestLens supports offline vulnerability advisory bundles for package-level CVE matching.
 
 ```bash
 bun run advisories:import /path/to/advisories.bundle.json
 ```
 
 The bundle loader records:
-
-- bundle id
-- generator version
-- declared support scope
+- Bundle ID and generator version
+- Declared support scope
 - SHA256 fingerprint
-- signature verification result when trusted keys are configured
-- stale or unsupported coverage warnings
+- Signature verification status
+- Stale or unsupported coverage warnings
 
-## Testing
+## Default Paths
+
+| Purpose | Path |
+|---------|------|
+| Runtime socket | `$XDG_RUNTIME_DIR/guestlens/collector.sock` |
+| Fallback socket | `/tmp/guestlens-<uid>/collector.sock` |
+| State directory | `$XDG_STATE_HOME/guestlens` |
+| Fallback state | `~/.local/state/guestlens` |
+| Database | `guestlens.db` |
+
+## State & Backup
+
+The state directory contains:
+- Scan history
+- Findings and deltas
+- Suppressions
+- Imported advisory bundles
+
+Back up this directory to preserve all data.
+
+## Security Findings Reference
+
+### Rule IDs
+
+| Rule ID | Description |
+|---------|-------------|
+| `guest.lsm.not-enforcing` | SELinux or AppArmor not in enforcing mode |
+| `guest.firewall.missing` | No active firewall ruleset detected |
+| `guest.firewall.not-default-deny` | Firewall lacks default-deny inbound policy |
+| `guest.firewall.visibility-limited` | Firewall inspection blocked by permissions |
+| `guest.ssh.weak-defaults` | SSH allows password auth, root login, or X11 forwarding |
+| `guest.sudoers.nopasswd` | Passwordless sudo entries found |
+| `guesthost.shared-folders.present` | virtiofs or 9p shared mounts detected |
+| `guesthost.qemu-guest-agent.present` | QEMU guest agent channel accessible |
+| `guesthost.spice-vdagent.present` | SPICE vdagent installed |
+| `guesthost.vsock.present` | AF_VSOCK support visible |
+| `guest.discovery.avahi-active` | Avahi-daemon service active |
+| `guest.network.discovery-sockets` | Multicast discovery listeners bound |
+| `guest.network.public-listeners` | Services listening on non-loopback addresses |
+| `guesthost.network.metadata-route` | Cloud metadata route (169.254.169.254) present |
+| `guest.files.world-writable-sensitive` | World-writable files in privileged paths |
+| `guest.packages.advisory-match` | Installed package matches advisory |
+| `guest.advisory-bundle.stale` | Advisory bundle is outdated |
+| `guest.advisory-bundle.unverified` | Advisory bundle not cryptographically verified |
+
+## Support
+
+### First-Class Support
+
+- Debian 12 guests
+- Ubuntu 22.04+ LTS guests
+- QEMU/KVM environments
+- systemd-based systems
+
+### Best-Effort Support
+
+- RPM-based guests (RHEL, Fedora, Rocky, Alma)
+- Arch Linux
+- non-systemd layouts (SysVinit, OpenRC)
+
+## Troubleshooting
+
+**Collector socket unavailable:**
+```bash
+bun run collector
+# or
+bun run dev
+```
+
+**Firewall visibility limited:**
+Run with sudo for complete firewall rule inspection:
+```bash
+sudo bun run collector
+```
+
+**Advisory findings limited:**
+Import a production advisory bundle with Debian/Ubuntu support scope.
+
+## Development
+
+### Running Tests
 
 ```bash
 bun test
-bun x tsc --noEmit
-bun run build
 ```
 
-## Runbooks and project docs
+### Type Checking
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Operations Runbook](docs/RUNBOOK.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security Policy](SECURITY.md)
+```bash
+bun x tsc --noEmit
+```
+
+### Building
+
+```bash
+bun run build
+```
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Related Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) - System design and data flow
+- [Operations Runbook](docs/RUNBOOK.md) - Deployment and maintenance
+- [Security Policy](SECURITY.md) - Security reporting guidelines

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "HostGuard Linux",
+  title: "GuestLens",
   description: "Security posture dashboard for guest-visible Linux hardening, exposure review, and remediation."
 };
 

@@ -311,12 +311,12 @@ export function Dashboard() {
     <main className="shell app-shell">
       <section className="topbar topbar-frame">
         <div className="topbar-copy">
-          <p className="eyebrow">HostGuard Linux</p>
-          <h1>VM guest posture and exposure review</h1>
-          <p className="topbar-text">
-            Evidence-first analysis for Debian and Ubuntu guests under QEMU/KVM. Prioritize drift, verify trust
-            boundaries, and export reports without leaving the local workstation.
+          <h1 className="brand-title">GUESTLENS - Isolate Your System</h1>
+          <p className="brand-description">
+            Analyze your QEMU/KVM Linux systems from the inside. Discover exposed services, guest agents, 
+            firewall gaps, and trust boundary violations - all locally, no cloud required.
           </p>
+          <p className="brand-tagline">Secure OS Secure Data</p>
         </div>
 
         <div className="topbar-meta">
@@ -325,39 +325,46 @@ export function Dashboard() {
             <span className="meta">Last scan {formatDate(posture.collectedAt)}</span>
           </div>
 
-          <div className="hero-signal">
-            <div className="signal-copy">
-              <span className="mini-label">Live telemetry</span>
-              <strong>{posture.posture ? `${posture.posture.overallScore}/100` : "--"}</strong>
-              <span>Current posture score</span>
-            </div>
-
-            <div className="signal-grid">
-              <div className="signal-cell">
-                <span className="signal-label">Visible</span>
-                <strong>{filteredFindings.length}</strong>
+          <div className="telemetry-panel">
+            <div className="telemetry-score">
+              <span className="telemetry-label">Posture Score</span>
+              <div className="telemetry-value">
+                <strong>{posture.posture ? `${posture.posture.overallScore}` : "--"}</strong>
+                <span>/100</span>
               </div>
-              <div className="signal-cell">
-                <span className="signal-label">High</span>
-                <strong>{criticalCount + highCount}</strong>
-              </div>
-              <div className="signal-cell">
-                <span className="signal-label">Delta</span>
-                <strong>{posture.delta?.summary.newCount ?? findings.findings.length}</strong>
-              </div>
-              <div className="signal-cell signal-cell-wide">
-                <span className="signal-label">Profile</span>
-                <strong>{activeProfile?.label ?? "Balanced"}</strong>
+              <div className="telemetry-ring">
+                <svg viewBox="0 0 36 36" className="circular-chart">
+                  <path className="circle-bg"
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path className="circle"
+                    strokeDasharray={`${posture.posture?.overallScore ?? 0}, 100`}
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
               </div>
             </div>
-
-            <div className="signal-bars" aria-hidden="true">
-              <span style={{ height: "36%" }} />
-              <span style={{ height: "64%" }} />
-              <span style={{ height: "92%" }} />
-              <span style={{ height: "58%" }} />
-              <span style={{ height: "74%" }} />
-              <span style={{ height: "42%" }} />
+            <div className="telemetry-stats">
+              <div className="telemetry-stat">
+                <span className="stat-value">{filteredFindings.length}</span>
+                <span className="stat-label">Findings</span>
+              </div>
+              <div className="telemetry-stat">
+                <span className="stat-value stat-high">{criticalCount + highCount}</span>
+                <span className="stat-label">High</span>
+              </div>
+              <div className="telemetry-stat">
+                <span className="stat-value">{posture.delta?.summary.newCount ?? 0}</span>
+                <span className="stat-label">New</span>
+              </div>
+              <div className="telemetry-stat">
+                <span className="stat-value">{activeProfile?.label ?? "Balanced"}</span>
+                <span className="stat-label">Profile</span>
+              </div>
             </div>
           </div>
         </div>
@@ -639,7 +646,7 @@ export function Dashboard() {
                             </div>
                           </div>
 
-                          <details className="details-block">
+                          <details className="details-block" open>
                             <summary>Evidence</summary>
                             <div className="details-grid">
                               {finding.evidence.map((item) => (
@@ -654,7 +661,7 @@ export function Dashboard() {
                             </div>
                           </details>
 
-                          <details className="details-block">
+                          <details className="details-block" open>
                             <summary>Analysis metadata</summary>
                             <div className="details-grid">
                               <div className="evidence-item">

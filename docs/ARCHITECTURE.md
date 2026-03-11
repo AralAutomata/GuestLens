@@ -1,6 +1,6 @@
 # Architecture
 
-HostGuard Linux has three local subsystems:
+GuestLens has three local subsystems:
 
 - `collector`: gathers guest-visible state and serves scan requests over a Unix socket
 - `analyzer`: converts snapshots into findings, groups, posture scores, and deltas

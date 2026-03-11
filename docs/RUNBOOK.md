@@ -16,8 +16,8 @@ bun run advisories:import /path/to/advisories.bundle.json
 
 ## State and backup
 
-- Runtime socket: under `$XDG_RUNTIME_DIR/hostguard-linux` or `/tmp/hostguard-linux-<uid>`
-- Persistent state: under `$XDG_STATE_HOME/hostguard-linux` or `~/.local/state/hostguard-linux`
+- Runtime socket: under `$XDG_RUNTIME_DIR/guestlens` or `/tmp/guestlens-<uid>`
+- Persistent state: under `$XDG_STATE_HOME/guestlens` or `~/.local/state/guestlens`
 
 Backup the full state directory to preserve:
 

@@ -136,6 +136,42 @@ code {
   letter-spacing: -0.05em;
 }
 
+.brand-title {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  color: #ff79c4;
+  text-shadow: 
+    0 0 10px rgba(255, 121, 196, 0.8),
+    0 0 20px rgba(255, 121, 196, 0.6),
+    0 0 40px rgba(255, 121, 196, 0.4),
+    0 0 60px rgba(255, 121, 196, 0.2);
+}
+
+.brand-description {
+  margin: 8px 0 0 0;
+  color: #fff;
+  font-size: 1.6rem;
+  font-style: italic;
+  line-height: 1.5;
+  max-width: 65ch;
+  text-shadow: 
+    0 0 4px #fff,
+    0 0 8px rgba(255, 255, 255, 0.8),
+    0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.brand-tagline {
+  margin: 16px 0 0 0;
+  color: #ff79c4;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 121, 196, 0.6);
+}
+
 .topbar-text,
 .panel p,
 .finding-card p,
@@ -152,106 +188,135 @@ code {
 
 .topbar-meta {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   align-content: space-between;
   justify-items: stretch;
+  padding: 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.005));
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .topbar-badges {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.hero-signal {
+.telemetry-panel {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: 
+    radial-gradient(circle at 30% 30%, rgba(255, 121, 196, 0.08), transparent 50%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 121, 196, 0.15);
+}
+
+.telemetry-score {
   position: relative;
-  overflow: hidden;
-  display: grid;
-  gap: 16px;
-  min-height: 136px;
-  padding: 12px 14px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 121, 196, 0.16), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
 }
 
-.hero-signal::after {
-  content: "";
-  position: absolute;
-  inset: auto -40px -60px auto;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 121, 196, 0.18), transparent 68%);
-  filter: blur(8px);
+.telemetry-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 4px;
 }
 
-.signal-copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 4px;
-  justify-items: start;
+.telemetry-value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
 }
 
-.signal-copy strong {
-  font-size: clamp(1.4rem, 2.6vw, 2.15rem);
-  line-height: 0.95;
-  letter-spacing: -0.05em;
-  text-shadow: 0 0 20px rgba(255, 121, 196, 0.22);
+.telemetry-value strong {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #ff79c4;
+  text-shadow: 0 0 15px rgba(255, 121, 196, 0.6);
 }
 
-.signal-copy span:last-child,
-.signal-label {
+.telemetry-value span {
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
-.signal-grid {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+.telemetry-ring {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
 }
 
-.signal-cell {
-  display: grid;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+.circular-chart {
+  width: 100%;
+  height: 100%;
 }
 
-.signal-cell strong {
-  font-size: 0.95rem;
+.circle-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 2;
 }
 
-.signal-cell-wide {
-  grid-column: span 3;
+.circle {
+  fill: none;
+  stroke: #ff79c4;
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(255, 121, 196, 0.8));
+  animation: progress 1s ease-out forwards;
 }
 
-.signal-bars {
-  position: relative;
-  z-index: 1;
+@keyframes progress {
+  0% { stroke-dasharray: 0, 100; }
+}
+
+.telemetry-stats {
   display: flex;
-  align-items: end;
-  gap: 10px;
-  height: 34px;
-  margin-top: 0;
+  gap: 16px;
 }
 
-.signal-bars span {
-  flex: 1 1 0;
-  min-width: 12px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 121, 196, 0.95), rgba(255, 121, 196, 0.18));
-  box-shadow: 0 0 18px rgba(255, 121, 196, 0.18);
+.telemetry-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.stat-value.stat-high {
+  color: #ff5252;
+  text-shadow: 0 0 10px rgba(255, 82, 82, 0.5);
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 .status-chip,
@@ -784,6 +849,8 @@ select {
 .evidence-item {
   padding: 16px;
   background: rgba(255, 255, 255, 0.03);
+  overflow-wrap: break-word;
+  word-break: break-all;
 }
 
 .command-shell {

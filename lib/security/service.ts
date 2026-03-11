@@ -172,7 +172,7 @@ export function exportSanitizedScan(scanId?: string | null, includeSuppressed = 
 
   return {
     schemaVersion: HOSTGUARD_SCHEMA_VERSION,
-    product: "HostGuard Linux",
+    product: "GuestLens",
     exportedAt: new Date().toISOString(),
     scanId: stored.scanId,
     profile: stored.profile,
@@ -269,7 +269,7 @@ export function exportHtmlReport(scanId?: string | null, includeSuppressed = tru
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>HostGuard Linux Report</title>
+    <title>GuestLens Report</title>
     <style>
       body { font-family: "Segoe UI", sans-serif; margin: 32px; color: #132033; background: #f7fbff; }
       h1, h2, h3, p { margin-top: 0; }
@@ -282,7 +282,7 @@ export function exportHtmlReport(scanId?: string | null, includeSuppressed = tru
     </style>
   </head>
   <body>
-    <h1>HostGuard Linux</h1>
+    <h1>GuestLens</h1>
     <p class="meta">Guest-visible VM posture report for scan ${escapeHtml(exported.scanId)}</p>
     <div class="summary">
       <div class="card">

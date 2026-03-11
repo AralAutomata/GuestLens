@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     return new NextResponse(exported, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `attachment; filename="hostguard-linux-${scanId?.slice(0, 8) ?? "latest"}.html"`
+        "Content-Disposition": `attachment; filename="guestlens-${scanId?.slice(0, 8) ?? "latest"}.html"`
       }
     });
   }
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json(exported, {
     headers: {
-      "Content-Disposition": `attachment; filename="hostguard-linux-${exported.scanId.slice(0, 8)}.json"`
+      "Content-Disposition": `attachment; filename="guestlens-${exported.scanId.slice(0, 8)}.json"`
     }
   });
 }

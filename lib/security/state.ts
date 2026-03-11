@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const APP_DIR = "hostguard-linux";
+const APP_DIR = "guestlens";
 
 function ensurePrivateDir(dirPath: string): string {
   if (!existsSync(dirPath)) {
@@ -42,7 +42,7 @@ export function getRuntimeDir(): string {
 }
 
 export function getDatabasePath(): string {
-  return path.join(getStateDir(), "hostguard-linux.db");
+  return path.join(getStateDir(), "guestlens.db");
 }
 
 export function getCollectorSocketPath(): string {
