@@ -308,35 +308,40 @@ export function Dashboard() {
     : [];
 
   return (
-    <main className="shell">
-      <section className="topbar">
+    <main className="shell app-shell">
+      <section className="topbar topbar-frame">
         <div className="topbar-copy">
           <p className="eyebrow">HostGuard Linux</p>
-          <h1>Security posture dashboard</h1>
+          <h1>VM guest posture and exposure review</h1>
           <p className="topbar-text">
-            Review guest-visible exposure, understand confidence boundaries, and move directly into validated
-            remediation steps.
+            Evidence-first analysis for Debian and Ubuntu guests under QEMU/KVM. Prioritize drift, verify trust
+            boundaries, and export reports without leaving the local workstation.
           </p>
         </div>
 
         <div className="topbar-meta">
-          <span className="status-chip">Guest-visible evidence</span>
-          <span className="meta">Last updated {formatDate(posture.collectedAt)}</span>
+          <span className="status-chip">Local-only workspace</span>
+          <span className="meta">Last scan {formatDate(posture.collectedAt)}</span>
         </div>
       </section>
 
-      <section className="hero-grid">
-        <div className="hero-panel hero-shell">
-          <div className="hero-copy">
-            <p className="eyebrow">Workspace Overview</p>
-            <h2 className="hero-title">Faster review flow for findings, trust boundaries, and next actions.</h2>
-            <p className="hero-text">
-              The dashboard keeps posture, findings, remediation commands, and scan history in one place so
-              operators can prioritize quickly without losing the evidence behind each decision.
-            </p>
+      <section className="overview-grid">
+        <div className="panel overview-panel">
+          <div className="overview-header">
+            <div>
+              <div className="panel-kicker">Control Room</div>
+              <h2>Current operating picture</h2>
+            </div>
+            <div className={`hero-score ${scoreClass(posture.posture?.overallScore ?? 0)}`}>
+              {posture.posture ? `${posture.posture.overallScore}/100` : "--"}
+            </div>
           </div>
 
-          <div className="hero-actions">
+          <p className="overview-trust">
+            {posture.posture?.trustStatement ?? "Run a scan to generate posture, confidence boundaries, and current priorities."}
+          </p>
+
+          <div className="hero-actions action-strip">
             <button className="button" onClick={runScan} disabled={isPending}>
               {isPending ? "Scanning..." : "Run guest scan"}
             </button>
@@ -344,7 +349,7 @@ export function Dashboard() {
               className="button button-ghost"
               href={posture.scanId ? `/api/export?scanId=${posture.scanId}&format=html` : "#"}
             >
-              Export HTML report
+              Export HTML
             </a>
             <a
               className="button button-ghost"
@@ -355,68 +360,64 @@ export function Dashboard() {
             <span className="meta">Profile: {activeProfile?.label ?? "Balanced"}</span>
           </div>
 
-          <div className="hero-highlights">
-            <div className="highlight-card">
-              <span className="mini-label">Latest scan</span>
-              <strong>{formatDate(posture.collectedAt)}</strong>
+          <div className="metric-grid">
+            <div className="metric-card metric-critical">
+              <span className="mini-label">Immediate work</span>
+              <strong>{criticalCount + highCount}</strong>
+              <span>Critical and high findings in the visible queue</span>
             </div>
-            <div className="highlight-card">
-              <span className="mini-label">Active profile</span>
-              <strong>{activeProfile?.label ?? "Balanced"}</strong>
-              <span>{activeProfile?.emphasis ?? "Balanced coverage for day-to-day review."}</span>
+            <div className="metric-card metric-neutral">
+              <span className="mini-label">Visible findings</span>
+              <strong>{filteredFindings.length}</strong>
+              <span>{visibleGroups.length} grouped issue areas</span>
             </div>
-            <div className="highlight-card">
-              <span className="mini-label">Current delta</span>
-              <strong>{posture.delta?.summary.newCount ?? findings.findings.length} new items</strong>
+            <div className="metric-card metric-neutral">
+              <span className="mini-label">Delta</span>
+              <strong>{posture.delta?.summary.newCount ?? findings.findings.length}</strong>
               <span>{deltaSummary(findings.delta)}</span>
             </div>
-            <div className="highlight-card">
-              <span className="mini-label">Support tier</span>
-              <strong>{posture.environment?.supportTier ?? "unknown"}</strong>
-              <span>
-                {posture.environment
-                  ? `${posture.environment.distroFamily} via ${posture.environment.packageManager}`
-                  : "Run a scan to determine distro support coverage."}
-              </span>
-            </div>
-            <div className="highlight-card">
-              <span className="mini-label">Advisory bundle</span>
+            <div className="metric-card metric-neutral">
+              <span className="mini-label">Bundle coverage</span>
               <strong>{posture.advisoryBundle?.coverage ?? "missing"}</strong>
               <span>
                 {posture.advisoryBundle
                   ? posture.advisoryBundle.issues[0] ?? `Bundle ${posture.advisoryBundle.bundleId}`
-                  : "No advisory bundle loaded yet."}
+                  : "No advisory bundle imported."}
               </span>
             </div>
           </div>
+
           {error ? <div className="error">{error}</div> : null}
         </div>
 
-        <div className="hero-stack">
+        <div className="hero-stack right-rail-stack">
           <div className="panel posture-panel">
-            <div className="panel-kicker">Current Posture</div>
-            <div className={`hero-score ${scoreClass(posture.posture?.overallScore ?? 0)}`}>
-              {posture.posture ? `${posture.posture.overallScore}/100` : "--"}
-            </div>
-            <p>{posture.posture?.trustStatement ?? "Run a scan to generate profile-aware posture scoring."}</p>
-            <div className="mini-grid">
+            <div className="panel-kicker">Support scope</div>
+            <h2>Environment coverage</h2>
+            <div className="mini-grid compact-grid">
               <div className="mini-card">
-                <span className="mini-label">Profile</span>
-                <strong>{activeProfile?.label ?? "Balanced"}</strong>
+                <span className="mini-label">Support tier</span>
+                <strong>{posture.environment?.supportTier ?? "unknown"}</strong>
               </div>
               <div className="mini-card">
-                <span className="mini-label">Findings</span>
-                <strong>{findings.findings.length}</strong>
+                <span className="mini-label">Distro family</span>
+                <strong>{posture.environment?.distroFamily ?? "unknown"}</strong>
               </div>
               <div className="mini-card">
-                <span className="mini-label">Delta</span>
-                <strong>{posture.delta?.summary.newCount ?? findings.findings.length}</strong>
+                <span className="mini-label">Package manager</span>
+                <strong>{posture.environment?.packageManager ?? "unknown"}</strong>
               </div>
             </div>
+            <p>
+              {posture.environment
+                ? `${posture.environment.distroFamily} collection running with ${posture.environment.packageManager} and ${posture.environment.initSystem}.`
+                : "Run a scan to determine platform coverage and collector capabilities."}
+            </p>
           </div>
 
           <div className="panel">
-            <div className="panel-kicker">Policy Profile</div>
+            <div className="panel-kicker">Policy profile</div>
+            <h2>Severity posture</h2>
             <div className="profile-switcher">
               {profileState.profiles.map((profile) => (
                 <button
@@ -435,54 +436,41 @@ export function Dashboard() {
         </div>
       </section>
 
-      <section className="ops-grid">
-        <div className="panel ops-card ops-card-danger">
-          <div className="panel-kicker">Scan</div>
-          <h2>Immediate Work</h2>
-          <strong>{criticalCount + highCount}</strong>
-          <p>Critical and high findings currently in the filtered queue.</p>
-        </div>
-        <div className="panel ops-card ops-card-warn">
-          <div className="panel-kicker">Understand</div>
-          <h2>Delta Since Last Scan</h2>
-          <strong>{deltaSummary(findings.delta)}</strong>
-          <p>Use new and changed findings as the default review path.</p>
-        </div>
-        <div className="panel ops-card ops-card-accent">
-          <div className="panel-kicker">Fix</div>
-          <h2>Manual Commands</h2>
-          <strong>{mediumCount}</strong>
-          <p>Medium findings still matter when they widen exposure or leak data across trust boundaries.</p>
-        </div>
-      </section>
-
-      <section className="score-grid">
-        {posture.posture ? (
-          posture.posture.scores.map((score) => (
-            <div className="panel score-card" key={score.category}>
-              <div className="panel-kicker">{score.category}</div>
-              <h3>{score.title}</h3>
-              <div className={`score-value ${scoreClass(score.score)}`}>{score.score}</div>
-              <p>{score.summary}</p>
-            </div>
-          ))
-        ) : (
-          <div className="panel">
-            <p>Run the first scan to populate posture categories.</p>
+      <section className="section-block">
+        <div className="section-head">
+          <div>
+            <div className="panel-kicker">Scoring</div>
+            <h2>Posture categories</h2>
           </div>
-        )}
+          <p className="section-copy">Each score reflects rule weight, confidence, and profile emphasis.</p>
+        </div>
+        <div className="score-grid">
+          {posture.posture ? (
+            posture.posture.scores.map((score) => (
+              <div className="panel score-card" key={score.category}>
+                <div className="panel-kicker">{score.category}</div>
+                <h3>{score.title}</h3>
+                <div className={`score-value ${scoreClass(score.score)}`}>{score.score}</div>
+                <p>{score.summary}</p>
+              </div>
+            ))
+          ) : (
+            <div className="panel">
+              <p>Run the first scan to populate posture categories.</p>
+            </div>
+          )}
+        </div>
       </section>
 
-      <section className="console-grid">
-        <div className="panel console-main">
+      <section className="workspace-grid">
+        <div className="panel console-main findings-panel">
           <div className="section-head">
             <div>
               <div className="panel-kicker">Queue</div>
               <h2>Findings queue</h2>
             </div>
             <p className="section-copy">
-              Filter first, then review the grouped evidence. Confidence and trust-boundary limits stay visible
-              throughout the remediation flow.
+              The queue is the main working surface. Filter aggressively, review evidence, then suppress only when the exception is deliberate.
             </p>
           </div>
 
@@ -591,7 +579,7 @@ export function Dashboard() {
                             </div>
                           </div>
 
-                          <div className="finding-grid">
+                          <div className="finding-grid finding-grid-dense">
                             <div className="finding-block">
                               <span className="subsection-label">Why this matters</span>
                               <p>{finding.rationale}</p>
@@ -700,7 +688,7 @@ export function Dashboard() {
           )}
         </div>
 
-        <aside className="console-side">
+        <aside className="console-side operations-rail">
           <div className="panel">
             <div className="panel-kicker">History</div>
             <h2>Recent scan deltas</h2>
