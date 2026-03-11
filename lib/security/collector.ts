@@ -84,10 +84,14 @@ function stripHostScope(address: string): string {
   return scopeIndex === -1 ? address : address.slice(0, scopeIndex);
 }
 
-function isLoopbackHost(address: string): boolean {
+export function isLoopbackHost(address: string): boolean {
   const host = stripHostScope(address).toLowerCase();
 
-  if (!host || host === "localhost" || host === "::1" || host === "[::1]") {
+  if (!host) {
+    return false;
+  }
+
+  if (host === "localhost" || host === "::1" || host === "[::1]") {
     return true;
   }
 
@@ -152,7 +156,11 @@ function routeSubnetForGateway(gateway: string | undefined): string | undefined 
   return `${segments[0]}.${segments[1]}.${segments[2]}.0/24`;
 }
 
-function looksLikeLibvirtNatGateway(routes: RouteRecord[], defaultRoute?: RouteRecord): boolean {
+// Heuristic: detects likely libvirt/bridge NAT gateways from route topology.
+// Recognizes virbr* (default libvirt), br*/bridge* (custom bridges), and the
+// canonical 192.168.122.1 default. Non-default subnets on custom bridge names
+// may not match; this is a known false-negative risk.
+export function looksLikeLibvirtNatGateway(routes: RouteRecord[], defaultRoute?: RouteRecord): boolean {
   if (!defaultRoute?.via || !defaultRoute.device) {
     return false;
   }
@@ -167,8 +175,9 @@ function looksLikeLibvirtNatGateway(routes: RouteRecord[], defaultRoute?: RouteR
     ? routes.some((route) => route.destination === subnet && route.device === defaultRoute.device && route.scope === "local-subnet")
     : false;
   const onVirbr = /^virbr\d+$/.test(defaultRoute.device);
+  const onBridge = /^(br|bridge)\d*$/i.test(defaultRoute.device);
 
-  return onVirbr || (hasSubnetRoute && gateway.endsWith(".1"));
+  return onVirbr || onBridge || (hasSubnetRoute && gateway.endsWith(".1"));
 }
 
 function parseOsRelease(): { distro: string; version: string } {
@@ -193,7 +202,7 @@ function parseOsRelease(): { distro: string; version: string } {
   };
 }
 
-function detectDistroFamily(distro: string): EnvironmentMetadata["distroFamily"] {
+export function detectDistroFamily(distro: string): EnvironmentMetadata["distroFamily"] {
   const normalized = distro.toLowerCase();
   if (normalized.includes("ubuntu")) {
     return "ubuntu";
@@ -201,7 +210,7 @@ function detectDistroFamily(distro: string): EnvironmentMetadata["distroFamily"]
   if (normalized.includes("debian")) {
     return "debian";
   }
-  if (normalized.includes("rhel") || normalized.includes("rocky") || normalized.includes("alma") || normalized.includes("fedora")) {
+  if (normalized.includes("rhel") || normalized.includes("red hat") || normalized.includes("centos") || normalized.includes("rocky") || normalized.includes("alma") || normalized.includes("fedora")) {
     return "rhel";
   }
   if (normalized.includes("arch")) {

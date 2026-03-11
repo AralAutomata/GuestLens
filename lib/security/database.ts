@@ -78,6 +78,13 @@ function openDatabase(): DatabaseSync {
   return global.__insideJobVmDb;
 }
 
+export function closeDatabase(): void {
+  if (global.__insideJobVmDb) {
+    global.__insideJobVmDb.close();
+    global.__insideJobVmDb = undefined;
+  }
+}
+
 function hydrateScan(scanId: string, snapshotJson: string, postureJson: string): StoredScan {
   const db = openDatabase();
   const findingRows = db
