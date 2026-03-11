@@ -150,57 +150,99 @@ const checks: CheckDefinition[] = [
         return [];
       }
 
+      const lsmEvidence = [
+        evidence(snapshot, {
+          id: "selinux",
+          label: "SELinux mode",
+          kind: "kernel-state",
+          value: snapshot.security.lsm.selinuxMode,
+          source: "/sys/fs/selinux/enforce",
+          pathOrCommand: "cat /sys/fs/selinux/enforce",
+          interpretation: snapshot.security.lsm.selinuxMode === "permissive"
+            ? "SELinux is installed but not enforcing."
+            : "SELinux is not present on this system.",
+          confidenceBasis: "Direct kernel state"
+        }),
+        evidence(snapshot, {
+          id: "apparmor",
+          label: "AppArmor enabled",
+          kind: "kernel-state",
+          value: String(snapshot.security.lsm.appArmorEnabled),
+          source: "/sys/module/apparmor/parameters/enabled",
+          pathOrCommand: "cat /sys/module/apparmor/parameters/enabled",
+          interpretation: "AppArmor enforcement is not active.",
+          confidenceBasis: "Direct kernel state"
+        })
+      ];
+
+      if (snapshot.security.lsm.selinuxMode === "permissive") {
+        return [
+          {
+            finding: createFinding(snapshot, profile, {
+              id: "guest-lsm-not-enforcing",
+              ruleId: "guest.lsm.not-enforcing",
+              groupKey: "guest-hardening",
+              title: "Mandatory access control is not enforcing",
+              summary: "SELinux is installed but running in permissive mode; policy violations are logged but not blocked.",
+              severity: profileAdjustedSeverity(profile, "high", "guest", ["guestHardening"]),
+              confidence: "authoritative",
+              certaintyReason: "The guest can directly read SELinux and AppArmor kernel state.",
+              boundary: "guest",
+              categories: ["guestHardening"],
+              impactedSurfaces: ["kernel policy", "process confinement"],
+              evidence: lsmEvidence,
+              rationale: "Permissive mode logs violations but does not enforce them, leaving containment inactive.",
+              operatorImpact: "Privilege separation inside the guest is materially weaker.",
+              falsePositiveGuidance: "Ignore only if the workload intentionally runs in permissive mode for policy development.",
+              remediation: [
+                {
+                  id: "manual-enforce-selinux",
+                  title: "Set SELinux to enforcing mode",
+                  description: "Switch SELinux from permissive to enforcing to activate policy enforcement.",
+                  requiresRoot: true,
+                  safeForAutomationLater: false,
+                  mode: "manual",
+                  commands: ["Set SELINUX=enforcing in /etc/selinux/config and reboot, or run setenforce 1 for immediate effect."]
+                }
+              ],
+              riskFactors: [riskFactor("lsm", "Guest kernel policy", "SELinux is permissive, not enforcing.", "high", "guest")],
+              relatedFindingIds: [],
+              safeForAutomationLater: false
+            })
+          }
+        ];
+      }
+
       return [
         {
           finding: createFinding(snapshot, profile, {
-            id: "guest-lsm-not-enforcing",
-            ruleId: "guest.lsm.not-enforcing",
+            id: "guest-lsm-disabled",
+            ruleId: "guest.lsm.disabled",
             groupKey: "guest-hardening",
-            title: "Mandatory access control is not enforcing",
-            summary: "The guest is missing an enforcing SELinux or AppArmor policy.",
+            title: "No mandatory access control system is active",
+            summary: "The guest has no enforcing SELinux or AppArmor policy; neither LSM is present.",
             severity: profileAdjustedSeverity(profile, "high", "guest", ["guestHardening"]),
             confidence: "authoritative",
             certaintyReason: "The guest can directly read SELinux and AppArmor kernel state.",
             boundary: "guest",
             categories: ["guestHardening"],
             impactedSurfaces: ["kernel policy", "process confinement"],
-            evidence: [
-              evidence(snapshot, {
-                id: "selinux",
-                label: "SELinux mode",
-                kind: "kernel-state",
-                value: snapshot.security.lsm.selinuxMode,
-                source: "/sys/fs/selinux/enforce",
-                pathOrCommand: "cat /sys/fs/selinux/enforce",
-                interpretation: "SELinux is not enforcing.",
-                confidenceBasis: "Direct kernel state"
-              }),
-              evidence(snapshot, {
-                id: "apparmor",
-                label: "AppArmor enabled",
-                kind: "kernel-state",
-                value: String(snapshot.security.lsm.appArmorEnabled),
-                source: "/sys/module/apparmor/parameters/enabled",
-                pathOrCommand: "cat /sys/module/apparmor/parameters/enabled",
-                interpretation: "AppArmor enforcement is not active.",
-                confidenceBasis: "Direct kernel state"
-              })
-            ],
-            rationale: "Without an enforcing LSM, a guest compromise has fewer kernel-backed containment barriers.",
+            evidence: lsmEvidence,
+            rationale: "Without any LSM, a guest compromise has no kernel-backed containment barriers.",
             operatorImpact: "Privilege separation inside the guest is materially weaker.",
             falsePositiveGuidance: "Ignore only if the workload intentionally runs without SELinux/AppArmor and isolation is enforced elsewhere inside the guest.",
             remediation: [
               {
-                id: "manual-enable-lsm",
-                title: "Enable an enforcing LSM",
-                description: "Boot with SELinux enforcing or load AppArmor profiles for the guest workload.",
+                id: "manual-install-lsm",
+                title: "Install and enable an LSM",
+                description: "Install and enable SELinux or AppArmor to provide mandatory access control for the guest workload.",
                 requiresRoot: true,
                 safeForAutomationLater: false,
                 mode: "manual",
-                commands: ["Review distro-specific SELinux or AppArmor enablement before changing boot policy."]
+                commands: ["Review distro-specific SELinux or AppArmor installation and enablement before changing boot policy."]
               }
             ],
-            riskFactors: [riskFactor("lsm", "Guest kernel policy", "No enforcing LSM is visible.", "high", "guest")],
+            riskFactors: [riskFactor("lsm", "Guest kernel policy", "No LSM is installed or active.", "high", "guest")],
             relatedFindingIds: [],
             safeForAutomationLater: false
           })

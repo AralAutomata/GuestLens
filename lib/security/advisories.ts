@@ -109,7 +109,7 @@ export function getAdvisoryBundleStatus(): AdvisoryBundleStatus | null {
   }
 
   const supportScope = loaded.bundle.metadata.supportScope ?? [];
-  const coverage = supportScope.length === 0 ? "limited" : supportScope.some((scope) => /debian|ubuntu/i.test(scope)) ? "supported" : "unsupported";
+  const coverage = supportScope.length === 0 ? "limited" : supportScope.some((scope) => /debian|ubuntu|rhel|centos|fedora|rocky|alma/i.test(scope)) ? "supported" : "unsupported";
 
   return {
     bundleId: loaded.bundle.metadata.id,
@@ -127,7 +127,7 @@ export function getAdvisoryBundleStatus(): AdvisoryBundleStatus | null {
     issues: issues.concat(
       loaded.bundle.metadata.trust?.signature && !verified ? ["Bundle signature could not be verified with a trusted key."] : [],
       stale ? ["Bundle is stale for security decision-making."] : [],
-      coverage === "unsupported" ? ["Bundle does not declare Debian/Ubuntu coverage."] : []
+      coverage === "unsupported" ? ["Bundle does not declare coverage for any supported distro family."] : []
     )
   };
 }
