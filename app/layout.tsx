@@ -4,8 +4,8 @@ import type { Metadata } from "next";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "InsideJobVM",
-  description: "Guest-resident hardening and isolation analysis for Linux KVM guests."
+  title: "HostGuard Linux",
+  description: "Security posture dashboard for guest-visible Linux hardening, exposure review, and remediation."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

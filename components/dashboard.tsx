@@ -199,17 +199,34 @@ export function Dashboard() {
   const criticalCount = countBySeverity(filteredFindings, "critical");
   const highCount = countBySeverity(filteredFindings, "high");
   const mediumCount = countBySeverity(filteredFindings, "medium");
+  const activeProfile = profileState.profiles.find((item) => item.id === profileState.activeProfile);
 
   return (
     <main className="shell">
+      <section className="topbar">
+        <div className="topbar-copy">
+          <p className="eyebrow">HostGuard Linux</p>
+          <h1>Security posture dashboard</h1>
+          <p className="topbar-text">
+            Review guest-visible exposure, understand confidence boundaries, and move directly into validated
+            remediation steps.
+          </p>
+        </div>
+
+        <div className="topbar-meta">
+          <span className="status-chip">Guest-visible evidence</span>
+          <span className="meta">Last updated {formatDate(posture.collectedAt)}</span>
+        </div>
+      </section>
+
       <section className="hero-grid">
         <div className="hero-panel hero-shell">
           <div className="hero-copy">
-            <p className="eyebrow">Guest-Resident Evidence Engine</p>
-            <h1>InsideJobVM</h1>
+            <p className="eyebrow">Workspace Overview</p>
+            <h2 className="hero-title">Faster review flow for findings, trust boundaries, and next actions.</h2>
             <p className="hero-text">
-              Triage what the guest can prove, what it can only infer, and what remains outside the trust boundary.
-              This console is tuned for fast operator review, not optimistic certainty.
+              The dashboard keeps posture, findings, remediation commands, and scan history in one place so
+              operators can prioritize quickly without losing the evidence behind each decision.
             </p>
           </div>
 
@@ -223,14 +240,24 @@ export function Dashboard() {
             >
               Export sanitized report
             </a>
-            <span className="meta">Latest scan: {formatDate(posture.collectedAt)}</span>
+            <span className="meta">Profile: {activeProfile?.label ?? "Balanced"}</span>
           </div>
 
-          <div className="hero-tags">
-            <span className="badge">guest-only telemetry</span>
-            <span className="badge">profile-aware scoring</span>
-            <span className="badge">scan diff tracking</span>
-            <span className="badge">manual fixes only</span>
+          <div className="hero-highlights">
+            <div className="highlight-card">
+              <span className="mini-label">Latest scan</span>
+              <strong>{formatDate(posture.collectedAt)}</strong>
+            </div>
+            <div className="highlight-card">
+              <span className="mini-label">Active profile</span>
+              <strong>{activeProfile?.label ?? "Balanced"}</strong>
+              <span>{activeProfile?.emphasis ?? "Balanced coverage for day-to-day review."}</span>
+            </div>
+            <div className="highlight-card">
+              <span className="mini-label">Current delta</span>
+              <strong>{posture.delta?.summary.newCount ?? findings.findings.length} new items</strong>
+              <span>{deltaSummary(findings.delta)}</span>
+            </div>
           </div>
           {error ? <div className="error">{error}</div> : null}
         </div>
@@ -245,7 +272,7 @@ export function Dashboard() {
             <div className="mini-grid">
               <div className="mini-card">
                 <span className="mini-label">Profile</span>
-                <strong>{profileState.profiles.find((item) => item.id === profileState.activeProfile)?.label ?? "Balanced"}</strong>
+                <strong>{activeProfile?.label ?? "Balanced"}</strong>
               </div>
               <div className="mini-card">
                 <span className="mini-label">Findings</span>
@@ -321,39 +348,57 @@ export function Dashboard() {
           <div className="section-head">
             <div>
               <div className="panel-kicker">Queue</div>
-              <h2>Grouped Findings</h2>
+              <h2>Findings queue</h2>
             </div>
             <p className="section-copy">
-              Filter the queue first. Every inferred or unverifiable claim is explicitly marked so operators can
-              separate facts from boundary-limited inference.
+              Filter first, then review the grouped evidence. Confidence and trust-boundary limits stay visible
+              throughout the remediation flow.
             </p>
           </div>
 
-          <div className="filter-row">
-            <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}>
-              <option value="all">All severities</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-              <option value="info">Info</option>
-            </select>
-            <select value={confidenceFilter} onChange={(event) => setConfidenceFilter(event.target.value as ConfidenceFilter)}>
-              <option value="all">All confidence</option>
-              <option value="authoritative">Authoritative</option>
-              <option value="inferred">Inferred</option>
-              <option value="unverifiable">Unverifiable</option>
-            </select>
-            <select value={boundaryFilter} onChange={(event) => setBoundaryFilter(event.target.value as BoundaryFilter)}>
-              <option value="all">All boundaries</option>
-              <option value="guest">Guest</option>
-              <option value="guest-host interface">Guest-host interface</option>
-              <option value="host-unverifiable">Host-unverifiable</option>
-            </select>
-            <label className="toggle">
-              <input type="checkbox" checked={showNewOnly} onChange={(event) => setShowNewOnly(event.target.checked)} />
-              <span>New since last scan</span>
+          <div className="filter-toolbar">
+            <label className="control">
+              <span className="control-label">Severity</span>
+              <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}>
+                <option value="all">All severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="info">Info</option>
+              </select>
             </label>
+            <label className="control">
+              <span className="control-label">Confidence</span>
+              <select value={confidenceFilter} onChange={(event) => setConfidenceFilter(event.target.value as ConfidenceFilter)}>
+                <option value="all">All confidence</option>
+                <option value="authoritative">Authoritative</option>
+                <option value="inferred">Inferred</option>
+                <option value="unverifiable">Unverifiable</option>
+              </select>
+            </label>
+            <label className="control">
+              <span className="control-label">Boundary</span>
+              <select value={boundaryFilter} onChange={(event) => setBoundaryFilter(event.target.value as BoundaryFilter)}>
+                <option value="all">All boundaries</option>
+                <option value="guest">Guest</option>
+                <option value="guest-host interface">Guest-host interface</option>
+                <option value="host-unverifiable">Host-unverifiable</option>
+              </select>
+            </label>
+            <label className="toggle-card">
+              <input type="checkbox" checked={showNewOnly} onChange={(event) => setShowNewOnly(event.target.checked)} />
+              <div>
+                <span className="control-label">Focus mode</span>
+                <span>New since last scan</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="queue-summary">
+            <span>{filteredFindings.length} visible findings</span>
+            <span>{visibleGroups.length} grouped issues</span>
+            <span>{showNewOnly ? "Showing only newly introduced items" : "Showing all matching findings"}</span>
           </div>
 
           {visibleGroups.length === 0 ? (
@@ -469,7 +514,7 @@ export function Dashboard() {
         <aside className="console-side">
           <div className="panel">
             <div className="panel-kicker">History</div>
-            <h2>Recent Scan Deltas</h2>
+            <h2>Recent scan deltas</h2>
             <div className="history-list">
               {history.length === 0 ? (
                 <div className="empty">No stored history yet.</div>
@@ -494,7 +539,7 @@ export function Dashboard() {
 
           <div className="panel">
             <div className="panel-kicker">Method</div>
-            <h2>Trust Boundary</h2>
+            <h2>Trust boundary</h2>
             <div className="trust-stack">
               <div className="trust-line">
                 <strong>Authoritative</strong>
@@ -513,7 +558,7 @@ export function Dashboard() {
 
           <div className="panel">
             <div className="panel-kicker">Operator Notes</div>
-            <h2>Top Priorities</h2>
+            <h2>Top priorities</h2>
             <div className="priority-list">
               {(posture.posture?.topPriorities ?? ["Run a scan to generate top-priority findings."]).map((item) => (
                 <div className="priority-item" key={item}>
